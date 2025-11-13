@@ -1,0 +1,1242 @@
+{
+  "info": {
+    "_postman_id": "patent-navi-api-collection",
+    "name": "Patent Navi API Collection",
+    "description": "Comprehensive API test collection for Patent Navi Backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "item": [
+    {
+      "name": "🔐 Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const jsonData = pm.response.json();",
+                  "  pm.environment.set('auth_token', jsonData.token);",
+                  "  pm.environment.set('refresh_token', jsonData.refreshToken);",
+                  "  console.log('Token saved to environment');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"tan286\",\n  \"password\": \"026339229\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:4001/api/auth/login",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User (Me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/auth/me",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/auth/logout",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📚 Titles",
+      "item": [
+        {
+          "name": "Get All Titles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/titles?page=1&limit=10",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "titles"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Titles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/titles/search?keyword=特許&dataType=特許",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "titles",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "keyword",
+                  "value": "特許"
+                },
+                {
+                  "key": "dataType",
+                  "value": "特許"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Title by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/titles/{{title_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "titles",
+                "{{title_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Title",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const jsonData = pm.response.json();",
+                  "  pm.environment.set('title_id', jsonData.data.id);",
+                  "  console.log('Title ID saved');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titleName\": \"Nintendo 特許分析 2024\",\n  \"dataType\": \"特許\",\n  \"markColor\": \"#dc2626\",\n  \"saveDate\": \"2025/11\",\n  \"viewPermission\": \"all\",\n  \"editPermission\": \"creator\",\n  \"mainEvaluation\": true,\n  \"singlePatentMultipleEvals\": false,\n  \"allowEvaluation\": true,\n  \"users\": []\n}"
+            },
+            "url": {
+              "raw": "http://localhost:4001/api/titles",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "titles"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Title",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titleName\": \"Nintendo 特許分析 2024 - Updated\",\n  \"markColor\": \"#3b82f6\",\n  \"viewPermission\": \"creator\",\n  \"editPermission\": \"creator\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:4001/api/titles/{{title_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "titles",
+                "{{title_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Copy Title",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newTitleName\": \"Copy of Nintendo 特許分析 2024\",\n  \"includePatents\": true\n}"
+            },
+            "url": {
+              "raw": "http://localhost:4001/api/titles/{{title_id}}/copy",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "titles",
+                "{{title_id}}",
+                "copy"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Title",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/titles/{{title_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "titles",
+                "{{title_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔬 Patents",
+      "item": [
+        {
+          "name": "Get Patent by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/patents/{{patent_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "patents",
+                "{{patent_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Patents by Title",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/titles/{{title_id}}/patents",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "titles",
+                "{{title_id}}",
+                "patents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Patent",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const jsonData = pm.response.json();",
+                  "  pm.environment.set('patent_id', jsonData.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titleId\": \"{{title_id}}\",\n  \"patentNo\": \"JP2024001234\",\n  \"applicationNo\": \"2024-567890\",\n  \"applicationDate\": \"2024-01-15T00:00:00Z\",\n  \"publicationDate\": \"2024-06-20T00:00:00Z\",\n  \"publicationNo\": \"JP2024-506789\",\n  \"registrationNo\": \"JP7012345\",\n  \"inventionName\": \"ゲーム機における映像処理装置\",\n  \"applicant\": \"任天堂株式会社\",\n  \"inventor\": \"田中 太郎\",\n  \"ipc\": \"G06F15/16\",\n  \"stage\": \"登録\",\n  \"eventType\": \"新規出願\",\n  \"documentUrl\": \"https://example.com/patent/JP2024001234\",\n  \"evaluationStatus\": \"未評価\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:4001/api/patents",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "patents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Patent",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inventionName\": \"ゲーム機における映像処理装置 (更新版)\",\n  \"stage\": \"審査中\",\n  \"evaluationStatus\": \"有望\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:4001/api/patents/{{patent_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "patents",
+                "{{patent_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Patent Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"evaluationStatus\": \"有望\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:4001/api/patents/{{patent_id}}/status",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "patents",
+                "{{patent_id}}",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Patents by Company",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/patents/companies/任天堂株式会社/patents",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "patents",
+                "companies",
+                "任天堂株式会社",
+                "patents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Patent",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/patents/{{patent_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "patents",
+                "{{patent_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "⭐ Evaluations",
+      "item": [
+        {
+          "name": "Create Evaluation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patentId\": \"{{patent_id}}\",\n  \"titleId\": \"{{title_id}}\",\n  \"status\": \"有望\",\n  \"comment\": \"This is a promising patent with good commercial potential\",\n  \"score\": 8,\n  \"isPublic\": true\n}"
+            },
+            "url": {
+              "raw": "http://localhost:4001/api/evaluations",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "evaluations"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Evaluations by Patent",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/patents/{{patent_id}}/evaluations",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "patents",
+                "{{patent_id}}",
+                "evaluations"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Evaluation",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"無効\",\n  \"comment\": \"Updated evaluation: Not promising after further review\",\n  \"score\": 3\n}"
+            },
+            "url": {
+              "raw": "http://localhost:4001/api/evaluations/{{evaluation_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "evaluations",
+                "{{evaluation_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Evaluation",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/evaluations/{{evaluation_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "evaluations",
+                "{{evaluation_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "👥 Users",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/users",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "users"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/users/{{user_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"newuser001\",\n  \"name\": \"田中 次郎\",\n  \"password\": \"SecurePassword123!\",\n  \"email\": \"tanaka.jiro@example.com\",\n  \"permission\": \"一般\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:4001/api/users",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "users"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"田中 次郎 (更新)\",\n  \"email\": \"tanaka.jiro.new@example.com\",\n  \"permission\": \"管理者\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:4001/api/users/{{user_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/users/{{user_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📤 Import/Export",
+      "item": [
+        {
+          "name": "Import Patents from CSV",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "titleId",
+                  "value": "{{title_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "mapping",
+                  "value": "{\"patentNo\":\"文献番号\",\"inventionName\":\"発明の名称\",\"applicant\":\"出願人/権利者\"}",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4001/api/import/patents",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "import",
+                "patents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Export Patents to CSV",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/export/patents?titleId={{title_id}}&format=csv",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "export",
+                "patents"
+              ],
+              "query": [
+                {
+                  "key": "titleId",
+                  "value": "{{title_id}}"
+                },
+                {
+                  "key": "format",
+                  "value": "csv"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Export Patents to Excel",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/export/patents?titleId={{title_id}}&format=excel",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "export",
+                "patents"
+              ],
+              "query": [
+                {
+                  "key": "titleId",
+                  "value": "{{title_id}}"
+                },
+                {
+                  "key": "format",
+                  "value": "excel"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🏷️ Classifications",
+      "item": [
+        {
+          "name": "Classify Patent",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patentId\": \"{{patent_id}}\",\n  \"classification\": \"G06F\",\n  \"description\": \"Computing devices and systems\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:4001/api/patents/{{patent_id}}/classifications",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "patents",
+                "{{patent_id}}",
+                "classifications"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Patent Classifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/patents/{{patent_id}}/classifications",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "patents",
+                "{{patent_id}}",
+                "classifications"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔄 Merge",
+      "item": [
+        {
+          "name": "Merge Titles",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceTitleId\": \"{{title_id}}\",\n  \"targetTitleId\": \"target_title_id\",\n  \"mergePatents\": true,\n  \"mergeEvaluations\": true\n}"
+            },
+            "url": {
+              "raw": "http://localhost:4001/api/merge/titles",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "merge",
+                "titles"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📎 Attachments",
+      "item": [
+        {
+          "name": "Upload Attachment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "titleId",
+                  "value": "{{title_id}}",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4001/api/attachments/upload",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "attachments",
+                "upload"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Attachments by Title",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/titles/{{title_id}}/attachments",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "titles",
+                "{{title_id}}",
+                "attachments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Attachment",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:4001/api/attachments/{{attachment_id}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4001",
+              "path": [
+                "api",
+                "attachments",
+                "{{attachment_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "💊 Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:4001/health",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "4001",
+          "path": [
+            "health"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "title_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "patent_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "evaluation_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "attachment_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

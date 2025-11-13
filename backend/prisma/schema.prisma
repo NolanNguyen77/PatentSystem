@@ -1,0 +1,218 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+// Users table
+model User {
+  id           String   @id @default(uuid())
+  userId       String   @unique @map("user_id")
+  name         String
+  password     String // Hashed with bcrypt
+  email        String?
+  departmentId String?  @map("department_id")
+  section      String?
+  permission   String   @default("一般") // 管理者/一般/閲覧
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  department   Department?   @relation(fields: [departmentId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  titleUsers   TitleUser[]
+  evaluations  Evaluation[]
+  activityLogs ActivityLog[]
+
+  @@map("users")
+}
+
+// Departments table
+model Department {
+  id           String   @id @default(uuid())
+  no           String   @unique
+  name         String
+  abbreviation String?
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  users User[]
+
+  @@map("departments")
+}
+
+// Titles table (保存タイトル)
+model Title {
+  id                        String   @id @default(uuid())
+  titleNo                   String   @unique @map("title_no")
+  titleName                 String   @map("title_name")
+  dataType                  String   @default("特許") @map("data_type") // 特許/論文/意匠/商標/フリー
+  markColor                         String?  @map("mark_color") // Hex color code
+  parentTitleId                     String?  @map("parent_title_id")
+  saveDate                          String   @map("save_date") // Format: YYYY/MM
+  disallowEvaluation                Boolean  @default(false) @map("disallow_evaluation")
+  allowEvaluation                   Boolean  @default(true) @map("allow_evaluation")
+  viewPermission                    String   @default("all") @map("view_permission") // all/creator/assigned
+  editPermission                    String   @default("creator") @map("edit_permission") // all/creator/assigned
+  mainEvaluation                    Boolean  @default(true) @map("main_evaluation")
+  singlePatentMultipleEvaluations   Boolean  @default(false) @map("single_patent_multiple_evals")
+  createdBy                         String   @map("created_by")
+  createdAt                         DateTime @default(now()) @map("created_at")
+  updatedAt                         DateTime @updatedAt @map("updated_at")
+
+  parentTitle     Title?                 @relation("TitleHierarchy", fields: [parentTitleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  childTitles     Title[]                @relation("TitleHierarchy")
+  titleUsers      TitleUser[]
+  patents         Patent[]
+  evaluations     Evaluation[]
+  attachments     Attachment[]
+  classifications PatentClassification[]
+  activityLogs    ActivityLog[]
+
+  @@map("titles")
+}
+
+// Title-User relationship (担当者)
+model TitleUser {
+  id                String   @id @default(uuid())
+  titleId           String   @map("title_id")
+  userId            String   @map("user_id")
+  isMainResponsible Boolean  @default(false) @map("is_main_responsible")
+  permission        String   @default("一般") // 管理者/一般/閲覧
+  evalEmail         Boolean  @default(false) @map("eval_email")
+  confirmEmail      Boolean  @default(false) @map("confirm_email")
+  displayOrder      Int      @default(0) @map("display_order")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  title Title @relation(fields: [titleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([titleId, userId])
+  @@map("title_users")
+}
+
+// Patents table
+model Patent {
+  id               String    @id @default(uuid())
+  titleId          String    @map("title_id")
+  patentNo         String?   @map("patent_no") // 文献番号
+  applicationNo    String?   @map("application_no") // 出願番号
+  applicationDate  DateTime? @map("application_date") // 出願日
+  publicationDate  DateTime? @map("publication_date") // 公開日
+  publicationNo    String?   @map("publication_no") // 公開番号
+  registrationNo   String?   @map("registration_no") // 登録番号
+  announcementNo   String?   @map("announcement_no") // 公告番号
+  trialNo          String?   @map("trial_no") // 審判番号
+  caseNo           String?   @map("case_no") // 事件番号
+  knownDate        DateTime? @map("known_date") // 公知日
+  inventionName    String?   @map("invention_name") // 発明の名称
+  applicant        String? // 出願人/権利者
+  inventor         String? // 発明者
+  ipc              String? // IPC分類
+  abstract         String? // Large text field
+  claims           String? // Large text field
+  stage            String? // ステージ
+  eventType        String?   @map("event_type") // イベント種類
+  other            String? // Large text field
+  documentUrl      String?   @map("document_url") // 文献URL
+  evaluationStatus String    @default("未評価") @map("evaluation_status") // 未評価/有望/無効/etc
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  title           Title                  @relation(fields: [titleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  evaluations     Evaluation[]
+  classifications PatentClassification[]
+
+  @@index([titleId])
+  @@index([applicant])
+  @@index([applicationDate])
+  @@index([publicationDate])
+  @@map("patents")
+}
+
+// Evaluations table
+model Evaluation {
+  id        String   @id @default(uuid())
+  patentId  String   @map("patent_id")
+  titleId   String   @map("title_id")
+  userId    String   @map("user_id")
+  status    String // 有望/無効/その他
+  comment   String? // Large text field
+  score     Int?
+  isPublic  Boolean  @default(false) @map("is_public")
+  isDeleted Boolean  @default(false) @map("is_deleted")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  patent Patent @relation(fields: [patentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  title  Title  @relation(fields: [titleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: Cascade)
+
+  @@index([patentId])
+  @@index([titleId])
+  @@index([userId])
+  @@map("evaluations")
+}
+
+// Patent Classifications (年別/月別/週別)
+model PatentClassification {
+  id                  String   @id @default(uuid())
+  patentId            String   @map("patent_id")
+  titleId             String   @map("title_id")
+  classificationType  String   @map("classification_type") // year/month/week
+  classificationValue String   @map("classification_value") // '2024', '2024/04', '2024-W20'
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  patent Patent @relation(fields: [patentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  title  Title  @relation(fields: [titleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([patentId, titleId, classificationType, classificationValue])
+  @@index([titleId, classificationType, classificationValue])
+  @@map("patent_classifications")
+}
+
+// Attachments table
+model Attachment {
+  id           String   @id @default(uuid())
+  titleId      String   @map("title_id")
+  filename     String
+  originalName String   @map("original_name")
+  size         BigInt
+  mimeType     String   @map("mime_type")
+  filePath     String   @map("file_path")
+  uploadedBy   String   @map("uploaded_by")
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+
+  title Title @relation(fields: [titleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([titleId])
+  @@map("attachments")
+}
+
+// Activity Logs (Audit trail)
+model ActivityLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  titleId    String?  @map("title_id")
+  action     String // create/update/delete/login/logout
+  targetType String   @map("target_type") // title/patent/user/evaluation
+  targetId   String?  @map("target_id")
+  details    String? // Large text field
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  title Title? @relation(fields: [titleId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([userId])
+  @@index([titleId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}

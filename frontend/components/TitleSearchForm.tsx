@@ -1,0 +1,842 @@
+import { useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
+import { Button } from './ui/button';
+import { Label } from './ui/label';
+import { Card } from './ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { Checkbox } from './ui/checkbox';
+import { Textarea } from './ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { ScrollArea } from './ui/scroll-area';
+import { Input } from './ui/input';
+
+interface TitleSearchFormProps {
+  onBack?: () => void;
+}
+
+export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
+  const [searchMethod, setSearchMethod] = useState('number'); // 'number' or 'condition'
+  const [selectedTitles, setSelectedTitles] = useState<string[]>([]);
+  const [searchOption, setSearchOption] = useState('exact');
+  const [patentCount, setPatentCount] = useState(0);
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [showListDialog, setShowListDialog] = useState(false);
+  const [searchExpression, setSearchExpression] = useState('S2×S1');
+  const [historyItems, setHistoryItems] = useState([
+    { id: 'S1', name: '権利者・出願人名', value: 'アイ・ピー・ファイン株式会社' },
+    { id: 'S2', name: '権利者・出願人名', value: '任天堂' }
+  ]);
+
+  // Mock search results - Updated with new data
+  const searchResults = [
+    {
+      no: '000032',
+      title: 'ひらかわ',
+      dataCount: '125',
+      department: '',
+      responsible: 'ひらかわ'
+    },
+    {
+      no: '000034',
+      title: 'グエン・ダイン・タン',
+      dataCount: '487',
+      department: '',
+      responsible: 'グエン・ダイン・タン'
+    },
+    {
+      no: '000040',
+      title: '廣川マコ',
+      dataCount: '56',
+      department: '',
+      responsible: 'グエン・ダイン・タン'
+    }
+  ];
+
+  // Mock patent list data
+  const patentListData = [
+    {
+      documentNo: '特許第7454310号',
+      applicationNo: '特願2023-147136',
+      applicationDate: '2023/9/11',
+      publicationDate: '2025/3/24',
+      inventionName: '特許情報管理システム',
+      applicant: 'アイ・ピー・ファイン株式会社',
+      publicationNo: '特開2025-040305',
+      announcementNo: '',
+      registrationNo: '特登-07454310',
+      trialNo: '',
+      other: '',
+      stage: '特許 有効',
+      event: '生年月日',
+      documentUrl: 'https://www.j-platpat.inpit.go.jp/c1801/PU/JP-2023-147136/10/ja'
+    },
+    {
+      documentNo: '特開2023-087022号',
+      applicationNo: '特願2023-087022',
+      applicationDate: '2022/3/3',
+      publicationDate: '2023/8/3',
+      inventionName: '持続可能なエネルギー',
+      applicant: '主要公開会社',
+      publicationNo: '特開2023-107712',
+      announcementNo: '',
+      registrationNo: '特登7383311',
+      trialNo: '',
+      other: '',
+      stage: '特許 有効',
+      event: '生年月日',
+      documentUrl: 'https://www.j-platpat.inpit.go.jp/c1801/PU/JP-2022-034545/10/ja'
+    },
+    {
+      documentNo: '特開2022-090653号',
+      applicationNo: '特願2022-090653',
+      applicationDate: '2021/9/8',
+      publicationDate: '2022/6/7',
+      inventionName: '先進材料科学技術',
+      applicant: '主要公開会社',
+      publicationNo: '特開2023-008963',
+      announcementNo: '',
+      registrationNo: '特登7154645',
+      trialNo: '',
+      other: '',
+      stage: '特許 有効',
+      event: '生年月日',
+      documentUrl: 'https://www.j-platpat.inpit.go.jp/c1801/PU/JP-2021-145845/10/ja'
+    }
+  ];
+
+  // Mock patent detail data
+  const patentDetail = {
+    titleCode: '000034',
+    titleName: 'グエン・ダイン・タン',
+    publicationNo: '特開2025-040305',
+    registrationNo: '特登-07454310',
+    applicant: 'アイ・ピー・ファイン株式会社',
+    inventionName: '特許情報管理システム',
+    abstract: `【要約】
+【課題】ユーザによる国際公開公報に対するその後の監視負担を軽減できる特許情報管理システムを提供すること。
+【解決手段】コンピュータがテーマに基づく公報一覧リストに、国際公開公報によるＷＯ案件データが含まれているか判断するＷＯ存在確認ステップＳ２１、ＷＯ案件データがある場合、ＷＯ案件データに対応する国内特許公報であるＪＰ案件データが公報一覧リストに含まれていか判断する対応ＪＰ存在確認ステップＳ２２、ＪＰ案件データがある場合、ＷＯ案件データとＪＰ案件データとを相互リンクする関連付けステップＳ２３、ＪＰ案件データがない場合、ＷＯ案件データに対応する国内出願番号があるか定期的に確認する対応ＪＰ出願番号確認ステップＳ２５、ＷＯ案件データに対応する国内出願番号がある場合、ＷＯ案件データに対応するＪＰ対応データを作成し、公報一覧リストに追加するＪＰ対応データ作成ステップＳ２８を実行する。
+【選択図】 図１`,
+    claims: `(57)
+【特許請求の範囲】
+【請求項１】
+設定したテーマに基づいて収集した特許公報データを蓄積し、蓄積した前記特許公報データの内容を評価し、評価結果を前記特許公報データと関連付けて蓄積する特許情報管理システムであって、
+コンピュータが、
+前記テーマに基づく公報一覧リストに、国際公開公報によるＷＯ案件データが含まれているかを判断するＷＯ存在確認ステップと、
+前記ＷＯ存在確認ステップで前記ＷＯ案件データが存在する場合には、前記ＷＯ案件データに対応する国内特許公報であるＪＰ案件データが前記公報一覧リストに含まいるかを判断する対応ＪＰ存在確認ステップと、
+前記対応ＪＰ存在確認ステップで、前記ＪＰ案件データが存在する場合には、前記ＷＯ案件データと前記ＪＰ案件データとを相互リンクする関連付けステップと、
+前記対応ＪＰ存在確認ステップで、前記ＪＰ案件データが存在しない場合には、前記ＷＯ案件データに対応する国内出願番号が存在するか否かを定期的に確認する対応ＪＰ出願番号確認ステップと、
+前記対応ＪＰ出願番号確認ステップで、前記ＷＯ案件データに対応する前記国内出願番号が存在する場合には、前記ＷＯ案件データに対応するＪＰ対応データを作成して、前記公報一覧リストに追加するＪＰ対応データ作成ステップと
+を実行する
+ことを特徴とする特許情報管理システム。`,
+    inventor: '古川　智昭|津村　惠美子|辻　麻美子|浅川　秀行',
+    ipc: 'G06Q 50/18',
+    applicationNo: '特願2023-147136',
+    applicationDate: '2023/09/11',
+    publicationDate: '2025/03/24',
+    registrationDate: '2024/03/13',
+    fi: 'G06Q 50/18 310',
+    fTerm: '5L049CC33 ; 5L050CC33',
+    publicationType: 'B9'
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedTitles(searchResults.map(r => r.no));
+    } else {
+      setSelectedTitles([]);
+    }
+  };
+
+  const handleSelectTitle = (titleNo: string, checked: boolean) => {
+    if (checked) {
+      setSelectedTitles([...selectedTitles, titleNo]);
+    } else {
+      setSelectedTitles(selectedTitles.filter(no => no !== titleNo));
+    }
+  };
+
+  const handleCountCheck = () => {
+    setPatentCount(34);
+  };
+
+  const handleDeleteHistory = (id: string) => {
+    setHistoryItems(historyItems.filter(item => item.id !== id));
+  };
+
+  const handleClearAllHistory = () => {
+    setHistoryItems([]);
+  };
+
+  const handleAddToExpression = (text: string) => {
+    setSearchExpression(searchExpression + text);
+  };
+
+  const handleHistoryClick = (id: string) => {
+    // Add the history ID to the search expression
+    if (searchExpression) {
+      setSearchExpression(searchExpression + ' ' + id);
+    } else {
+      setSearchExpression(id);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Top Buttons */}
+      <div className="flex justify-between items-center">
+        {onBack && (
+          <Button 
+            variant="outline" 
+            onClick={onBack}
+            className="border-2 border-orange-500 text-orange-600 hover:bg-orange-50 px-6"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            タイトル一覧へ戻る
+          </Button>
+        )}
+        <Button 
+          variant="outline" 
+          className="border-2 border-gray-400 bg-white hover:bg-gray-50 px-6 ml-auto"
+        >
+          条件をクリア
+        </Button>
+      </div>
+
+      {/* Section 1: 検索方法 */}
+      <Card className="border-2 border-orange-200 bg-orange-50/30">
+        <div className="p-4">
+          <div className="mb-4">
+            <span className="bg-orange-500 text-white px-3 py-1 rounded text-sm">検索方法</span>
+          </div>
+          <RadioGroup value={searchMethod} onValueChange={setSearchMethod} className="flex gap-4">
+            <div className="flex items-center space-x-2 p-2 rounded border-2 border-black bg-white">
+              <RadioGroupItem value="number" id="number" className="border-2 border-black" />
+              <Label htmlFor="number" className="cursor-pointer text-sm">番号を入力して検索</Label>
+            </div>
+            <div className="flex items-center space-x-2 p-2 rounded border-2 border-black bg-white">
+              <RadioGroupItem value="condition" id="condition" className="border-2 border-black" />
+              <Label htmlFor="condition" className="cursor-pointer text-sm">条件を入力して検索</Label>
+            </div>
+          </RadioGroup>
+        </div>
+      </Card>
+
+      {/* Conditional Content Based on Search Method */}
+      {searchMethod === 'number' ? (
+        // 番号を入力して検索 UI - Same format as 条件を入力して検索
+        <div className="space-y-4">
+          {/* タイトル指定 Section */}
+          <Card className="border-2 border-orange-200 bg-orange-50/30">
+            <div className="p-4">
+              <div className="mb-4">
+                <span className="bg-orange-500 text-white px-3 py-1 rounded text-sm">タイトル指定</span>
+              </div>
+              
+              {/* Header */}
+              <div className="flex items-center gap-4 mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs">用途:</span>
+                  <Select defaultValue="patent">
+                    <SelectTrigger className="bg-white border border-gray-300 h-7 w-24 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="patent">特許</SelectItem>
+                      <SelectItem value="design">意匠</SelectItem>
+                      <SelectItem value="trademark">商標</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs">検索済み件数：405 件</span>
+                  <Button size="sm" className="h-7 px-3 text-xs bg-gray-600 hover:bg-gray-700">
+                    確認
+                  </Button>
+                </div>
+              </div>
+
+              <div className="text-xs text-gray-600 mb-3">
+                ※確認した範囲をまず確定してください。からのタイトルから選んでください。
+              </div>
+
+              {/* Table */}
+              <Card className="border-2 border-gray-300 bg-white overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-100 hover:bg-gray-100">
+                      <TableHead className="w-[60px] border-r text-xs text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <Checkbox 
+                            checked={selectedTitles.length === searchResults.length && searchResults.length > 0}
+                            onCheckedChange={handleSelectAll}
+                          />
+                          <span className="text-[9px]">全ON/OFF</span>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[80px] border-r text-xs text-center">No.</TableHead>
+                      <TableHead className="border-r text-xs">保存データタイトル</TableHead>
+                      <TableHead className="w-[130px] border-r text-xs">データ件数</TableHead>
+                      <TableHead className="w-[120px] border-r text-xs">部署名</TableHead>
+                      <TableHead className="w-[130px] text-xs">主担当者</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {searchResults.map((result) => (
+                      <TableRow key={result.no} className="hover:bg-gray-50">
+                        <TableCell className="border-r text-center">
+                          <Checkbox 
+                            checked={selectedTitles.includes(result.no)}
+                            onCheckedChange={(checked) => handleSelectTitle(result.no, checked as boolean)}
+                          />
+                        </TableCell>
+                        <TableCell className="border-r text-xs text-center">{result.no}</TableCell>
+                        <TableCell className="border-r text-xs">{result.title}</TableCell>
+                        <TableCell className="border-r text-xs">{result.dataCount}</TableCell>
+                        <TableCell className="border-r text-xs">{result.department}</TableCell>
+                        <TableCell className="text-xs">{result.responsible}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            </div>
+          </Card>
+
+          {/* 番号入力 Section */}
+          <Card className="border-2 border-orange-200 bg-orange-50/30">
+            <div className="p-4">
+              <div className="mb-4">
+                <span className="bg-orange-500 text-white px-3 py-1 rounded text-sm">番号入力</span>
+              </div>
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  <div className="w-[200px]">
+                    <Label className="text-sm mb-2 block">番号区分</Label>
+                    <Select defaultValue="publication">
+                      <SelectTrigger className="bg-white border-2 border-gray-300">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="publication">公開・公表番号</SelectItem>
+                        <SelectItem value="application">出願番号</SelectItem>
+                        <SelectItem value="registration">登録番号</SelectItem>
+                        <SelectItem value="gazette">広報番号</SelectItem>
+                        <SelectItem value="idea">アイデア番号</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex-1">
+                    <Label className="text-sm mb-2 block invisible">入力</Label>
+                    <Textarea 
+                      className="min-h-[100px] bg-white border-2 border-gray-300 text-sm"
+                      placeholder="特開2025-040365"
+                    />
+                  </div>
+
+                  <div className="w-[200px]">
+                    <Label className="text-sm mb-2 block">検索オプション</Label>
+                    <RadioGroup value={searchOption} onValueChange={setSearchOption} className="space-y-2">
+                      <div className="flex items-center space-x-2 p-2 rounded border-2 border-black bg-white">
+                        <RadioGroupItem value="exact" id="exact" className="border-2 border-black" />
+                        <Label htmlFor="exact" className="cursor-pointer text-sm">完全一致</Label>
+                      </div>
+                      <div className="flex items-center space-x-2 p-2 rounded border-2 border-black bg-white">
+                        <RadioGroupItem value="partial" id="partial" className="border-2 border-black" />
+                        <Label htmlFor="partial" className="cursor-pointer text-sm">部分一致</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                </div>
+
+                {/* Count Check Section */}
+                <div className="flex items-center gap-3 pt-2">
+                  <Button
+                    onClick={handleCountCheck}
+                    className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white px-6"
+                  >
+                    件数チェック
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={patentCount > 0 ? patentCount : ''}
+                      readOnly
+                      className="w-24 text-center border-2 border-gray-300"
+                      placeholder="0"
+                    />
+                    <span className="text-sm">件</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      ) : (
+        // 条件を入力して検索 UI
+        <div className="space-y-4">
+          {/* タイトル指定 Section */}
+          <Card className="border-2 border-orange-200 bg-orange-50/30">
+            <div className="p-4">
+              <div className="mb-4">
+                <span className="bg-orange-500 text-white px-3 py-1 rounded text-sm">タイトル指定</span>
+              </div>
+              
+              {/* Header */}
+              <div className="flex items-center gap-4 mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs">用途:</span>
+                  <Select defaultValue="patent">
+                    <SelectTrigger className="bg-white border border-gray-300 h-7 w-24 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="patent">特許</SelectItem>
+                      <SelectItem value="design">意匠</SelectItem>
+                      <SelectItem value="trademark">商標</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs">検索済み件数：405 件</span>
+                  <Button size="sm" className="h-7 px-3 text-xs bg-gray-600 hover:bg-gray-700">
+                    確認
+                  </Button>
+                </div>
+              </div>
+
+              <div className="text-xs text-gray-600 mb-3">
+                ※確認した範囲をまず確定してください。からのタイトルから選んでください。
+              </div>
+
+              {/* Table */}
+              <Card className="border-2 border-gray-300 bg-white overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-100 hover:bg-gray-100">
+                      <TableHead className="w-[60px] border-r text-xs text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <Checkbox 
+                            checked={selectedTitles.length === searchResults.length && searchResults.length > 0}
+                            onCheckedChange={handleSelectAll}
+                          />
+                          <span className="text-[9px]">全ON/OFF</span>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[80px] border-r text-xs text-center">No.</TableHead>
+                      <TableHead className="border-r text-xs">保存データタイトル</TableHead>
+                      <TableHead className="w-[130px] border-r text-xs">データ件数</TableHead>
+                      <TableHead className="w-[120px] border-r text-xs">部署名</TableHead>
+                      <TableHead className="w-[130px] text-xs">主担当者</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {searchResults.map((result) => (
+                      <TableRow key={result.no} className="hover:bg-gray-50">
+                        <TableCell className="border-r text-center">
+                          <Checkbox 
+                            checked={selectedTitles.includes(result.no)}
+                            onCheckedChange={(checked) => handleSelectTitle(result.no, checked as boolean)}
+                          />
+                        </TableCell>
+                        <TableCell className="border-r text-xs text-center">{result.no}</TableCell>
+                        <TableCell className="border-r text-xs">{result.title}</TableCell>
+                        <TableCell className="border-r text-xs">{result.dataCount}</TableCell>
+                        <TableCell className="border-r text-xs">{result.department}</TableCell>
+                        <TableCell className="text-xs">{result.responsible}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            </div>
+          </Card>
+
+          {/* 名称かリスト Section */}
+          <Card className="border-2 border-orange-200 bg-orange-50/30">
+            <div className="p-4">
+              <div className="mb-4">
+                <span className="bg-orange-500 text-white px-3 py-1 rounded text-sm">名称かリスト</span>
+              </div>
+
+              {/* Input Row */}
+              <div className="flex items-end gap-2 mb-4">
+                <div className="flex-1">
+                  <Label className="text-xs mb-1 block">検索名称</Label>
+                  <div className="flex gap-2">
+                    <Select defaultValue="applicant">
+                      <SelectTrigger className="bg-white border border-gray-300 h-8 w-[180px] text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="document">文献番号</SelectItem>
+                        <SelectItem value="application">出願番号</SelectItem>
+                        <SelectItem value="applicationDate">出願日</SelectItem>
+                        <SelectItem value="publicationDate">公知日</SelectItem>
+                        <SelectItem value="inventionName">発明の名称</SelectItem>
+                        <SelectItem value="applicant">出願人/権利者</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input className="bg-white border border-gray-300 h-8 text-xs flex-1" />
+                    <Button 
+                      size="sm"
+                      className="h-8 px-4 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white"
+                    >
+                      追
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-xs text-gray-600 mb-3">
+                ※履歴かリストでクリックして編集元に履歴を追加してください。
+              </div>
+
+              {/* History Table - Updated with new column names */}
+              <div className="border-2 border-gray-300 bg-white rounded overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-100 hover:bg-gray-100">
+                      <TableHead className="w-[80px] border-r text-xs text-center">選択</TableHead>
+                      <TableHead className="w-[150px] border-r text-xs">項目</TableHead>
+                      <TableHead className="border-r text-xs">条件</TableHead>
+                      <TableHead className="w-[80px] text-xs text-center">
+                        <Button 
+                          variant="link" 
+                          size="sm" 
+                          className="h-auto p-0 text-xs text-blue-600"
+                          onClick={handleClearAllHistory}
+                        >
+                          全削除
+                        </Button>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {historyItems.map((item) => (
+                      <TableRow key={item.id} className="hover:bg-gray-50">
+                        <TableCell className="border-r text-xs text-center">
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 text-xs text-blue-600 hover:underline"
+                            onClick={() => handleHistoryClick(item.id)}
+                          >
+                            {item.id}
+                          </Button>
+                        </TableCell>
+                        <TableCell className="border-r text-xs">{item.name}</TableCell>
+                        <TableCell className="border-r text-xs">{item.value}</TableCell>
+                        <TableCell className="text-center">
+                          <Button 
+                            variant="link" 
+                            size="sm" 
+                            className="h-auto p-0 text-xs text-blue-600"
+                            onClick={() => handleDeleteHistory(item.id)}
+                          >
+                            削除
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </Card>
+
+          {/* 検索式 Section */}
+          <Card className="border-2 border-orange-200 bg-orange-50/30">
+            <div className="p-4">
+              <div className="mb-4">
+                <span className="bg-orange-500 text-white px-3 py-1 rounded text-sm">検索式</span>
+              </div>
+
+              <div className="space-y-3">
+                <Input 
+                  value={searchExpression}
+                  onChange={(e) => setSearchExpression(e.target.value)}
+                  className="bg-white border border-gray-300 h-8 text-xs"
+                />
+
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-4 border-gray-300 text-xs"
+                    onClick={() => setSearchExpression('')}
+                  >
+                    Clear
+                  </Button>
+                  <Button 
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-4 border-gray-300 text-xs"
+                    onClick={() => handleAddToExpression('[')}
+                  >
+                    [
+                  </Button>
+                  <Button 
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-4 border-gray-300 text-xs"
+                    onClick={() => handleAddToExpression(']')}
+                  >
+                    ]
+                  </Button>
+                  <Button 
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-4 border-gray-300 text-xs"
+                    onClick={() => handleAddToExpression('*')}
+                  >
+                    *
+                  </Button>
+                  <Button 
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-4 border-gray-300 text-xs"
+                    onClick={() => handleAddToExpression('+')}
+                  >
+                    +
+                  </Button>
+                  <Button 
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-4 border-gray-300 text-xs"
+                    onClick={() => handleAddToExpression('Not')}
+                  >
+                    Not
+                  </Button>
+                </div>
+
+                {/* Count Check at bottom of 検索式 */}
+                <div className="flex items-center gap-3 pt-2">
+                  <Button
+                    onClick={handleCountCheck}
+                    className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white px-6"
+                  >
+                    件数チェック
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={patentCount > 0 ? patentCount : ''}
+                      readOnly
+                      className="w-24 text-center border-2 border-gray-300"
+                      placeholder="0"
+                    />
+                    <span className="text-sm">件</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Bottom Action Buttons */}
+      <div className="flex gap-3 justify-center pt-4 border-t-2 border-gray-200">
+        <Button 
+          variant="outline" 
+          onClick={() => setShowDetailDialog(true)}
+          className="border-2 border-orange-400 bg-gradient-to-r from-orange-100 to-yellow-100 hover:from-orange-200 hover:to-yellow-200 px-12 h-10 text-sm min-w-[150px]"
+        >
+          案件詳細
+        </Button>
+        <Button 
+          variant="outline" 
+          onClick={() => setShowListDialog(true)}
+          className="border-2 border-orange-400 bg-gradient-to-r from-orange-100 to-yellow-100 hover:from-orange-200 hover:to-yellow-200 px-12 h-10 text-sm min-w-[150px]"
+        >
+          案件一覧
+        </Button>
+        <Button 
+          variant="outline" 
+          className="border-2 border-orange-400 bg-gradient-to-r from-orange-100 to-yellow-100 hover:from-orange-200 hover:to-yellow-200 px-12 h-10 text-sm min-w-[150px]"
+        >
+          出力
+        </Button>
+      </div>
+
+      {/* Patent Detail Dialog */}
+      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
+        <DialogContent className="max-w-5xl max-h-[90vh]">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle className="flex items-center gap-2">
+              <span className="bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
+                書誌・明細書
+              </span>
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              特許案件の詳細情報を表示します
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ScrollArea className="max-h-[calc(90vh-120px)] pr-4">
+            <div className="space-y-4">
+              {/* Basic Info Section */}
+              <div className="grid grid-cols-2 gap-4 p-4 bg-orange-50/30 rounded border border-orange-200">
+                <div>
+                  <Label className="text-xs text-gray-600">タイトルコード</Label>
+                  <p className="text-sm mt-1">{patentDetail.titleCode}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-600">タイトル名</Label>
+                  <p className="text-sm mt-1">{patentDetail.titleName}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-600">公開・公表番号</Label>
+                  <p className="text-sm mt-1">{patentDetail.publicationNo}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-600">登録番号</Label>
+                  <p className="text-sm mt-1">{patentDetail.registrationNo}</p>
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs text-gray-600">権利者･出願人名</Label>
+                  <p className="text-sm mt-1">{patentDetail.applicant}</p>
+                </div>
+              </div>
+
+              {/* Invention Name */}
+              <div className="p-4 bg-white rounded border border-gray-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Button size="sm" variant="outline" className="h-6 px-2 text-xs">送信</Button>
+                  <Label className="text-sm">発明の名称</Label>
+                </div>
+                <p className="text-sm">{patentDetail.inventionName}</p>
+              </div>
+
+              {/* Abstract */}
+              <div className="p-4 bg-white rounded border border-gray-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Button size="sm" variant="outline" className="h-6 px-2 text-xs">送信</Button>
+                  <Label className="text-sm">要約</Label>
+                </div>
+                <div className="text-xs whitespace-pre-wrap bg-gray-50 p-3 rounded">
+                  {patentDetail.abstract}
+                </div>
+              </div>
+
+              {/* Claims */}
+              <div className="p-4 bg-white rounded border border-gray-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Button size="sm" variant="outline" className="h-6 px-2 text-xs">送信</Button>
+                  <Label className="text-sm">請求の範囲</Label>
+                </div>
+                <div className="text-xs whitespace-pre-wrap bg-gray-50 p-3 rounded max-h-60 overflow-y-auto">
+                  {patentDetail.claims}
+                </div>
+              </div>
+
+              {/* Additional Details */}
+              <div className="grid grid-cols-2 gap-4 p-4 bg-orange-50/30 rounded border border-orange-200">
+                <div>
+                  <Label className="text-xs text-gray-600">発明者名</Label>
+                  <p className="text-xs mt-1">{patentDetail.inventor}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-600">IPC</Label>
+                  <p className="text-xs mt-1">{patentDetail.ipc}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-600">出願番号</Label>
+                  <p className="text-xs mt-1">{patentDetail.applicationNo}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-600">出願日</Label>
+                  <p className="text-xs mt-1">{patentDetail.applicationDate}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-600">公開・公表日</Label>
+                  <p className="text-xs mt-1">{patentDetail.publicationDate}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-600">登録日</Label>
+                  <p className="text-xs mt-1">{patentDetail.registrationDate}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-600">FI</Label>
+                  <p className="text-xs mt-1">{patentDetail.fi}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-600">Fターム</Label>
+                  <p className="text-xs mt-1">{patentDetail.fTerm}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-600">公報種別</Label>
+                  <p className="text-xs mt-1">{patentDetail.publicationType}</p>
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Patent List Dialog */}
+      <Dialog open={showListDialog} onOpenChange={setShowListDialog}>
+        <DialogContent className="max-w-[95vw] max-h-[90vh] p-0">
+          <DialogHeader className="border-b pb-3 px-4 pt-4">
+            <DialogTitle className="flex items-center gap-2">
+              <span className="bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
+                案件一覧
+              </span>
+              <span className="text-sm text-gray-500">({patentListData.length}件)</span>
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              検索結果の特許案件一覧を表示します
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="overflow-auto px-4 pb-4">
+            <Table className="border border-gray-300">
+              <TableHeader>
+                <TableRow className="bg-orange-100 hover:bg-orange-100">
+                  <TableHead className="border-r text-xs whitespace-nowrap px-3 py-2">文献番号</TableHead>
+                  <TableHead className="border-r text-xs whitespace-nowrap px-3 py-2">出願番号</TableHead>
+                  <TableHead className="border-r text-xs whitespace-nowrap px-3 py-2">出願日</TableHead>
+                  <TableHead className="border-r text-xs whitespace-nowrap px-3 py-2">公知日</TableHead>
+                  <TableHead className="border-r text-xs px-3 py-2">発明の名称</TableHead>
+                  <TableHead className="border-r text-xs px-3 py-2">出願人/権利者</TableHead>
+                  <TableHead className="border-r text-xs whitespace-nowrap px-3 py-2">公開番号</TableHead>
+                  <TableHead className="border-r text-xs whitespace-nowrap px-3 py-2">公告番号</TableHead>
+                  <TableHead className="border-r text-xs whitespace-nowrap px-3 py-2">登録番号</TableHead>
+                  <TableHead className="border-r text-xs whitespace-nowrap px-3 py-2">審判番号</TableHead>
+                  <TableHead className="border-r text-xs whitespace-nowrap px-3 py-2">その他</TableHead>
+                  <TableHead className="border-r text-xs whitespace-nowrap px-3 py-2">ステージ</TableHead>
+                  <TableHead className="border-r text-xs whitespace-nowrap px-3 py-2">イベント</TableHead>
+                  <TableHead className="text-xs px-3 py-2">文献URL</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {patentListData.map((patent, index) => (
+                  <TableRow key={index} className="hover:bg-gray-50">
+                    <TableCell className="border-r text-xs whitespace-nowrap px-3 py-2">{patent.documentNo}</TableCell>
+                    <TableCell className="border-r text-xs whitespace-nowrap px-3 py-2">{patent.applicationNo}</TableCell>
+                    <TableCell className="border-r text-xs whitespace-nowrap px-3 py-2">{patent.applicationDate}</TableCell>
+                    <TableCell className="border-r text-xs whitespace-nowrap px-3 py-2">{patent.publicationDate}</TableCell>
+                    <TableCell className="border-r text-xs px-3 py-2">{patent.inventionName}</TableCell>
+                    <TableCell className="border-r text-xs px-3 py-2">{patent.applicant}</TableCell>
+                    <TableCell className="border-r text-xs whitespace-nowrap px-3 py-2">{patent.publicationNo}</TableCell>
+                    <TableCell className="border-r text-xs whitespace-nowrap px-3 py-2">{patent.announcementNo}</TableCell>
+                    <TableCell className="border-r text-xs whitespace-nowrap px-3 py-2">{patent.registrationNo}</TableCell>
+                    <TableCell className="border-r text-xs whitespace-nowrap px-3 py-2">{patent.trialNo}</TableCell>
+                    <TableCell className="border-r text-xs whitespace-nowrap px-3 py-2">{patent.other}</TableCell>
+                    <TableCell className="border-r text-xs whitespace-nowrap px-3 py-2">{patent.stage}</TableCell>
+                    <TableCell className="border-r text-xs whitespace-nowrap px-3 py-2">{patent.event}</TableCell>
+                    <TableCell className="text-xs px-3 py-2">
+                      <a href={patent.documentUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">
+                        {patent.documentUrl}
+                      </a>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
