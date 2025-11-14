@@ -6,14 +6,14 @@ export interface CreatePatentData {
   titleId: string;
   patentNo?: string;
   applicationNo?: string;
-  applicationDate?: Date;
-  publicationDate?: Date;
+  applicationDate?: string | Date;
+  publicationDate?: string | Date;
   publicationNo?: string;
   registrationNo?: string;
   announcementNo?: string;
   trialNo?: string;
   caseNo?: string;
-  knownDate?: Date;
+  knownDate?: string | Date;
   inventionName?: string;
   applicant?: string;
   inventor?: string;
@@ -26,6 +26,46 @@ export interface CreatePatentData {
   documentUrl?: string;
   evaluationStatus?: string;
 }
+
+const parseDate = (value?: string | Date | null) => {
+  if (!value) {
+    return undefined;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (isNaN(date.getTime())) {
+    throw new AppError(`Invalid date format: ${value}`, 400);
+  }
+
+  return date;
+};
+
+const upsertPatentClassifications = async (patentId: string, titleId: string, date: Date) => {
+  const classifications = generateClassifications(date);
+
+  await Promise.all(
+    classifications.map((c) =>
+      prisma.patentClassification.upsert({
+        where: {
+          patentId_titleId_classificationType_classificationValue: {
+            patentId,
+            titleId,
+            classificationType: c.type,
+            classificationValue: c.value,
+          },
+        },
+        update: {},
+        create: {
+          patentId,
+          titleId,
+          classificationType: c.type,
+          classificationValue: c.value,
+        },
+      })
+    )
+  );
+};
 
 export const getPatentsByTitle = async (
   titleId: string,
@@ -112,19 +152,23 @@ export const getPatentById = async (id: string) => {
 };
 
 export const createPatent = async (data: CreatePatentData) => {
+  const applicationDate = parseDate(data.applicationDate);
+  const publicationDate = parseDate(data.publicationDate);
+  const knownDate = parseDate(data.knownDate);
+
   const patent = await prisma.patent.create({
     data: {
       titleId: data.titleId,
       patentNo: data.patentNo,
       applicationNo: data.applicationNo,
-      applicationDate: data.applicationDate,
-      publicationDate: data.publicationDate,
+      applicationDate,
+      publicationDate,
       publicationNo: data.publicationNo,
       registrationNo: data.registrationNo,
       announcementNo: data.announcementNo,
       trialNo: data.trialNo,
       caseNo: data.caseNo,
-      knownDate: data.knownDate,
+      knownDate,
       inventionName: data.inventionName,
       applicant: data.applicant,
       inventor: data.inventor,
@@ -140,19 +184,10 @@ export const createPatent = async (data: CreatePatentData) => {
   });
 
   // Auto-classify patent
-  if (data.applicationDate || data.publicationDate) {
-    const date = data.applicationDate || data.publicationDate;
+  if (applicationDate || publicationDate) {
+    const date = applicationDate || publicationDate;
     if (date) {
-      const classifications = generateClassifications(date);
-      await prisma.patentClassification.createMany({
-        data: classifications.map((c) => ({
-          patentId: patent.id,
-          titleId: data.titleId,
-          classificationType: c.type,
-          classificationValue: c.value,
-        })),
-        skipDuplicates: true,
-      } as any);
+      await upsertPatentClassifications(patent.id, data.titleId, date);
     }
   }
 
@@ -160,19 +195,23 @@ export const createPatent = async (data: CreatePatentData) => {
 };
 
 export const updatePatent = async (id: string, data: Partial<CreatePatentData>) => {
+  const applicationDate = parseDate(data.applicationDate);
+  const publicationDate = parseDate(data.publicationDate);
+  const knownDate = parseDate(data.knownDate);
+
   const patent = await prisma.patent.update({
     where: { id },
     data: {
       patentNo: data.patentNo,
       applicationNo: data.applicationNo,
-      applicationDate: data.applicationDate,
-      publicationDate: data.publicationDate,
+      applicationDate,
+      publicationDate,
       publicationNo: data.publicationNo,
       registrationNo: data.registrationNo,
       announcementNo: data.announcementNo,
       trialNo: data.trialNo,
       caseNo: data.caseNo,
-      knownDate: data.knownDate,
+      knownDate,
       inventionName: data.inventionName,
       applicant: data.applicant,
       inventor: data.inventor,
@@ -188,25 +227,15 @@ export const updatePatent = async (id: string, data: Partial<CreatePatentData>) 
   });
 
   // Re-classify if date changed
-  if (data.applicationDate || data.publicationDate) {
-    // Delete old classifications
+  if (applicationDate || publicationDate) {
+    // Delete old classifications to keep data consistent
     await prisma.patentClassification.deleteMany({
       where: { patentId: id },
     });
 
-    // Create new classifications
-    const date = data.applicationDate || data.publicationDate;
+    const date = applicationDate || publicationDate;
     if (date) {
-      const classifications = generateClassifications(date);
-      await prisma.patentClassification.createMany({
-        data: classifications.map((c) => ({
-          patentId: id,
-          titleId: patent.titleId,
-          classificationType: c.type,
-          classificationValue: c.value,
-        })),
-        skipDuplicates: true,
-      } as any);
+      await upsertPatentClassifications(id, patent.titleId, date);
     }
   }
 

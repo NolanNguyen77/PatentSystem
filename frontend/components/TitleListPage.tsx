@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Lightbulb, 
   User, 
@@ -16,6 +16,7 @@ import {
   Paperclip, 
   FileText 
 } from 'lucide-react';
+import { titleAPI } from '../services/api';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
@@ -112,8 +113,94 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
   const [selectedCompany, setSelectedCompany] = useState<string>('');
   const [selectedCompanyCount, setSelectedCompanyCount] = useState<number>(0);
   const [selectedTitleForManagement, setSelectedTitleForManagement] = useState<any>(null);
-  const [savedTitles, setSavedTitles] = useState(titles);
+  const [savedTitles, setSavedTitles] = useState<any[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch titles from API
+  const fetchTitles = async () => {
+    try {
+      setIsLoading(true);
+      console.log('🔄 Fetching titles from API...');
+      const result = await titleAPI.getAll();
+      
+      console.log('📦 API Result:', result);
+      
+      // Handle different response formats
+      let apiTitles: any[] = [];
+      
+      if (result.data) {
+        // Backend returns: { data: { titles: [...], total, page, limit } }
+        // apiCall wraps it: { data: { data: { titles: [...], total, page, limit } } }
+        
+        // Case 1: result.data.data.titles (nested - expected format)
+        if (result.data.data && result.data.data.titles) {
+          apiTitles = result.data.data.titles;
+          console.log('✅ Found titles in result.data.data.titles:', apiTitles.length);
+        }
+        // Case 2: result.data.titles (direct - if apiCall doesn't wrap)
+        else if (result.data.titles && Array.isArray(result.data.titles)) {
+          apiTitles = result.data.titles;
+          console.log('✅ Found titles in result.data.titles:', apiTitles.length);
+        }
+        // Case 3: result.data is array directly
+        else if (Array.isArray(result.data)) {
+          apiTitles = result.data;
+          console.log('✅ Found titles as array in result.data:', apiTitles.length);
+        }
+        // Case 4: result.data.data exists but no titles (empty or different structure)
+        else if (result.data.data) {
+          console.log('⚠️ result.data.data exists but no titles field:', result.data.data);
+          // Try to extract titles if it's in a different format
+          if (result.data.data.titles) {
+            apiTitles = result.data.data.titles;
+          }
+        }
+      }
+      
+      if (apiTitles.length > 0) {
+        // Map API response format → Frontend format (add id field)
+        const transformedTitles = apiTitles.map((title: any) => ({
+          id: title.id,              // ✅ Add id for edit/delete operations
+          no: title.no,
+          title: title.title,
+          department: title.department || '',
+          responsible: title.responsible || '',
+          dataCount: title.dataCount || 0,
+          evaluated: title.evaluated || 0,
+          notEvaluated: title.notEvaluated || 0,
+          trash: title.trash || 0,
+          progressRate: title.progressRate || 0,
+          date: title.date,
+          dataType: title.dataType || '特許',
+          attachments: title.attachments || 0,
+          markColor: title.markColor || '',
+        }));
+        
+        console.log('✅ Transformed titles:', transformedTitles.length);
+        setSavedTitles(transformedTitles);
+      } else {
+        console.warn('⚠️ No titles found in response');
+        setSavedTitles([]);
+      }
+      
+      if (result.error) {
+        console.error('❌ API Error:', result.error);
+        alert(`タイトルの取得に失敗しました: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching titles:', error);
+      alert(`タイトルの取得中にエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setSavedTitles([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch titles on component mount
+  useEffect(() => {
+    fetchTitles();
+  }, []);
 
   // Filter titles based on search query
   const filteredTitles = savedTitles.filter((title) => {
@@ -128,56 +215,75 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
     );
   });
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
     setSearchQuery('');
-    
-    // Simulate refresh delay
-    setTimeout(() => {
-      setSavedTitles([...titles]);
-      setIsRefreshing(false);
-    }, 600);
+    await fetchTitles();
+    setIsRefreshing(false);
   };
 
-  const handleSaveTitle = (titleData: any) => {
-    // Generate new title ID
-    const newId = String(Number(savedTitles[savedTitles.length - 1].no) + 1).padStart(6, '0');
-    
-    // Get mark color based on mark type (matching ColorSelect values)
-    const markColorMap: { [key: string]: string } = {
-      'マークなし': '',
-      'レッド': '#dc2626',        // Red 600
-      'オレンジ': '#f97316',      // Orange 500
-      'イエロー': '#facc15',      // Yellow 400
-      'グリーン': '#22c55e',      // Green 500
-      'ブルー': '#3b82f6',        // Blue 500
-      'パープル': '#9333ea',      // Purple 600
-      'ピンク': '#ec4899',        // Pink 500
-      'ネオンブルー': '#22d3ee',  // Cyan 400
-      'イエローグリーン': '#a3e635', // Lime 400
-      'グレー': '#9ca3af',        // Gray 400
-    };
-    
-    // Create new title entry
-    const newTitle = {
-      no: newId,
-      title: titleData.titleName,
-      department: '調査力部所',
-      responsible: 'グエン・タン・タン',
-      dataCount: 0,
-      evaluated: 0,
-      notEvaluated: 0,
-      trash: 0,
-      progressRate: 0,
-      date: titleData.saveDate || '2025/11',
-      dataType: titleData.dataType || '特許',
-      attachments: 0,
-      markColor: markColorMap[titleData.markType] || ''
-    };
-    
-    // Add to list and go back to list view
-    setSavedTitles([...savedTitles, newTitle]);
-    setActiveTab('list');
+  const handleSaveTitle = async (titleData: any) => {
+    try {
+      // Get mark color based on mark type (matching ColorSelect values)
+      const markColorMap: { [key: string]: string } = {
+        'マークなし': '',
+        'レッド': '#dc2626',        // Red 600
+        'オレンジ': '#f97316',      // Orange 500
+        'イエロー': '#facc15',      // Yellow 400
+        'グリーン': '#22c55e',      // Green 500
+        'ブルー': '#3b82f6',        // Blue 500
+        'パープル': '#9333ea',      // Purple 600
+        'ピンク': '#ec4899',        // Pink 500
+        'ネオンブルー': '#22d3ee',  // Cyan 400
+        'イエローグリーン': '#a3e635', // Lime 400
+        'グレー': '#9ca3af',        // Gray 400
+      };
+
+      // Format data for API (match backend CreateTitleData interface)
+      const apiData = {
+        titleName: titleData.titleName,
+        dataType: titleData.dataType || '特許',
+        markColor: markColorMap[titleData.markType] || '',
+        parentTitleId: titleData.parentTitle || undefined,
+        saveDate: titleData.saveDate || new Date().toISOString().slice(0, 7).replace('-', '/'), // Format: YYYY/MM
+        disallowEvaluation: titleData.disallowEvaluation || false,
+        allowEvaluation: titleData.allowEvaluation !== false,
+        viewPermission: 'all', // Default
+        editPermission: 'creator', // Default
+        mainEvaluation: true, // Default
+        singlePatentMultipleEvaluations: false, // Default
+        users: titleData.selectedUsers?.map((u: any) => ({
+          userId: u.userId,
+          isMainResponsible: u.isMain || false,
+          permission: u.permission || '一般',
+          evalEmail: u.evalEmail || false,
+          confirmEmail: u.confirmEmail || false,
+          displayOrder: u.displayOrder || 0,
+        })) || [],
+      };
+
+      // Call API to create title
+      const result = await titleAPI.create(apiData);
+      
+      if (result.data) {
+        // Unwrap response: backend returns { data: { id, message } }
+        const responseData = result.data.data || result.data;
+        if (responseData && (responseData.id || responseData.message)) {
+          // Success: Refresh list to show new title
+          await fetchTitles();
+          setActiveTab('list');
+        } else {
+          console.error('Failed to create title: Invalid response format');
+          alert('タイトルの作成に失敗しました: 無効な応答形式');
+        }
+      } else if (result.error) {
+        console.error('Failed to create title:', result.error);
+        alert(`タイトルの作成に失敗しました: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error creating title:', error);
+      alert('タイトルの作成中にエラーが発生しました');
+    }
   };
 
   const handleUpdateTitle = (updatedTitleData: any) => {
@@ -333,7 +439,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
             {activeTab === 'create' ? (
               <CreateTitleForm onBack={() => setActiveTab('list')} onSave={handleSaveTitle} />
             ) : activeTab === 'copy' ? (
-              <CopyDataForm onBack={() => setActiveTab('list')} />
+              <CopyDataForm onClose={() => setActiveTab('list')} />
             ) : activeTab === 'merge' ? (
               <MergeDataForm onBack={() => setActiveTab('list')} />
             ) : activeTab === 'search' ? (
@@ -405,7 +511,34 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTitles.map((item, index) => (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={13} className="text-center py-8">
+                      <div className="flex items-center justify-center gap-2">
+                        <RefreshCw className="w-5 h-5 animate-spin text-orange-500" />
+                        <span className="text-gray-500">読み込み中...</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredTitles.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={13} className="text-center py-8">
+                      <div className="flex flex-col items-center gap-2">
+                        <p className="text-gray-500">タイトルがありません</p>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={handleRefresh}
+                          className="mt-2"
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          再読み込み
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredTitles.map((item, index) => (
                   <TableRow key={index} className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-yellow-50 transition-all group">
                     <TableCell>
                       <DropdownMenu>
@@ -532,7 +665,8 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                     </TableCell>
                     <TableCell className="text-center">{item.date}</TableCell>
                   </TableRow>
-                ))}
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>

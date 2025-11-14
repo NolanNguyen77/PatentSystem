@@ -3,10 +3,20 @@ const API_BASE_URL = 'http://localhost:4001/api';
 
 // Toggle between mock and real API
 // Set to 'false' in .env to use real backend API
-const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === 'true'; // Default to real API
+// @ts-ignore - Vite env types
+const USE_MOCK_API = (import.meta.env?.VITE_USE_MOCK_API === 'true') || false; // Default to real API
 
-// Import mock API
-import mockAPI from './mockAPI';
+// Mock API (placeholder - not implemented yet)
+const mockAPI = {
+  auth: {} as any,
+  title: {} as any,
+  patent: {} as any,
+  importExport: {} as any,
+  merge: {} as any,
+  attachment: {} as any,
+  user: {} as any,
+  company: {} as any,
+};
 
 // Helper function for real API calls
 async function apiCall<T>(
@@ -109,16 +119,24 @@ const realTitleAPI = {
 
   create: async (titleData: {
     titleName: string;
-    department: string;
-    permissions: {
-      viewPermission: string;
-      editPermission: string;
-    };
-    options: {
-      mainEvaluation: boolean;
-      singlePatentMultipleEvaluations: boolean;
-    };
-    users: string[];
+    dataType?: string;
+    markColor?: string;
+    parentTitleId?: string;
+    saveDate: string;
+    disallowEvaluation?: boolean;
+    allowEvaluation?: boolean;
+    viewPermission?: string;
+    editPermission?: string;
+    mainEvaluation?: boolean;
+    singlePatentMultipleEvaluations?: boolean;
+    users?: Array<{
+      userId: string;
+      isMainResponsible?: boolean;
+      permission?: string;
+      evalEmail?: boolean;
+      confirmEmail?: boolean;
+      displayOrder?: number;
+    }>;
   }) => {
     return apiCall<{ id: string; message: string }>('/titles', {
       method: 'POST',
@@ -246,27 +264,6 @@ const realImportExportAPI = {
       allFields: string[]; 
       defaultFields: string[] 
     }>('/export/fields');
-  },
-};
-
-const realMergeAPI = {
-  mergeTitles: async (mergeData: {
-    newTitleName: string;
-    department: string;
-    sourceTitleIds: string[];
-    extractionCondition: {
-      type: 'evaluation' | 'monitoring';
-      selectedEvaluations: string[];
-    };
-  }) => {
-    return apiCall<{ 
-      newTitleId: string; 
-      mergedCount: number; 
-      message: string 
-    }>('/titles/merge', {
-      method: 'POST',
-      body: JSON.stringify(mergeData),
-    });
   },
 };
 

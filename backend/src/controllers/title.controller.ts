@@ -56,13 +56,15 @@ export const createTitleController = async (req: AuthRequest, res: Response): Pr
       res.status(401).json({ error: 'Not authenticated' });
       return;
     }
-
+    
+    // Gọi service để tạo title
     const title = await createTitle(req.body, req.user.userId);
     
+    // Log activity vào database
     await logActivity(
       req.user.id,
       'create',
-      'title',
+      'title',    
       title.id,
       `Created title: ${title.titleName}`,
       req.ip,
