@@ -251,7 +251,7 @@ export function ExportDataDialog({ open, onOpenChange, totalCount = 404 }: Expor
               <Checkbox
                 id="export-representative"
                 checked={exportRepresentative}
-                onCheckedChange={(checked) => setExportRepresentative(checked as boolean)}
+                onCheckedChange={(checked: boolean | 'indeterminate') => setExportRepresentative(typeof checked === 'boolean' ? checked : false)}
               />
               <label htmlFor="export-representative" className="text-sm cursor-pointer">
                 代表図を出力する
@@ -261,7 +261,7 @@ export function ExportDataDialog({ open, onOpenChange, totalCount = 404 }: Expor
               <Checkbox
                 id="export-evaluation"
                 checked={exportEvaluation}
-                onCheckedChange={(checked) => setExportEvaluation(checked as boolean)}
+                onCheckedChange={(checked: boolean | 'indeterminate') => setExportEvaluation(typeof checked === 'boolean' ? checked : false)}
               />
               <label htmlFor="export-evaluation" className="text-sm cursor-pointer">
                 評価情報を出力する（履歴は出力しません）

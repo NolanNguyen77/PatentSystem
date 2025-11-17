@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Checkbox } from './ui/checkbox';
 import { Input } from './ui/input';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { titleAPI } from '../services/api';
 
 interface MergeDataFormProps {
   onBack?: () => void;
@@ -20,30 +21,35 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
   const [showExtractionCondition, setShowExtractionCondition] = useState(false);
   const [extractionType, setExtractionType] = useState('evaluation');
   const [selectedEvaluations, setSelectedEvaluations] = useState<string[]>([]);
+  const [titleData, setTitleData] = useState<any[]>([]);
+  const [evaluationData, setEvaluationData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Mock title data for merging
-  const titleData = [
-    {
-      no: '000032',
-      title: 'ひらかわ'
-    },
-    {
-      no: '000034',
-      title: 'グエン・ダイン・タン'
-    },
-    {
-      no: '000040',
-      title: '草小マジ'
-    }
-  ];
-
-  // Mock evaluation data for extraction
-  const evaluationData = [
-    { id: '000032_B', code: '000032_B', name: '評価2' },
-    { id: '000041_A', code: '000041_A', name: '評価1' },
-    { id: '000041_B', code: '000041_B', name: '評価2' },
-    { id: '000041_C', code: '000041_C', name: '評価3' },
-  ];
+  // Fetch titles and evaluations from API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        console.log('🔄 Fetching titles...');
+        const result = await titleAPI.getAll();
+        
+        if (result.data) {
+          const titles = result.data.titles || (Array.isArray(result.data) ? result.data : []);
+          setTitleData(titles.map((t: any, idx: number) => ({
+            no: t.no || `000${idx + 1}`,
+            title: t.titleName || t.name
+          })));
+          
+          // Initialize empty evaluations array (will be populated from database when needed)
+          setEvaluationData([]);
+        }
+      } catch (err) {
+        console.error('❌ Error fetching data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -193,7 +199,7 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
                     <TableCell className="border-r text-center">
                       <Checkbox 
                         checked={selectedTitles.includes(title.no)}
-                        onCheckedChange={(checked) => handleSelectTitle(title.no, checked as boolean)}
+                        onCheckedChange={(checked: boolean | 'indeterminate') => handleSelectTitle(title.no, typeof checked === 'boolean' ? checked : false)}
                       />
                     </TableCell>
                     <TableCell className="border-r text-xs text-center">{title.no}</TableCell>
@@ -263,7 +269,7 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
                         <TableCell className="border-r text-center">
                           <Checkbox 
                             checked={selectedEvaluations.includes(evaluation.id)}
-                            onCheckedChange={(checked) => handleSelectEvaluation(evaluation.id, checked as boolean)}
+                            onCheckedChange={(checked: boolean | 'indeterminate') => handleSelectEvaluation(evaluation.id, typeof checked === 'boolean' ? checked : false)}
                           />
                         </TableCell>
                         <TableCell className="border-r text-xs text-center">{evaluation.code}</TableCell>

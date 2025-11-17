@@ -205,6 +205,19 @@ const realPatentAPI = {
     }>(`/titles/${titleId}/patents?${params}`);
   },
 
+  // Fetch patents by company name using existing backend route
+  // Postman collection shows: GET /api/patents/companies/:name/patents
+  getByCompany: async (companyName: string, filters?: { status?: 'evaluated' | 'unevaluated'; search?: string }) => {
+    const params = new URLSearchParams(filters as any);
+    return apiCall<{
+      patents: any[];
+      total: number;
+      evaluatedCount: number;
+      unevaluatedCount: number;
+      progressRate: number;
+    }>(`/patents/companies/${encodeURIComponent(companyName)}/patents?${params}`);
+  },
+
   updateStatus: async (patentId: string, status: 'evaluated' | 'unevaluated') => {
     return apiCall<{ message: string }>(`/patents/${patentId}/status`, {
       method: 'PUT',

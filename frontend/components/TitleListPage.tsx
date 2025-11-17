@@ -53,54 +53,6 @@ interface TitleListPageProps {
   onLogout: () => void;
 }
 
-const titles = [
-  {
-    no: '000032',
-    title: 'ひらかわ',
-    department: '調査力部所',
-    responsible: 'ひらかわ',
-    dataCount: 10,
-    evaluated: 5,
-    notEvaluated: 5,
-    trash: 0,
-    progressRate: 50.0,
-    date: '2025/10',
-    dataType: '特許',
-    attachments: 0,
-    markColor: ''
-  },
-  {
-    no: '000034',
-    title: 'グエン・ダイ・タン',
-    department: '調査力部所',
-    responsible: 'グエン・タイ・シ・タン',
-    dataCount: 34,
-    evaluated: 20,
-    notEvaluated: 14,
-    trash: 0,
-    progressRate: 58.8,
-    date: '2025/10',
-    dataType: '特許',
-    attachments: 2,
-    markColor: '#dc2626' // レッド (Red)
-  },
-  {
-    no: '000035',
-    title: 'コピー ～ グエン・ダイブ・タン',
-    department: '調査力部所',
-    responsible: 'グエン・ダイブ・タン',
-    dataCount: 8,
-    evaluated: 3,
-    notEvaluated: 5,
-    trash: 0,
-    progressRate: 37.5,
-    date: '2025/11',
-    dataType: '論文',
-    attachments: 1,
-    markColor: '#3b82f6' // ブルー (Blue)
-  }
-];
-
 export function TitleListPage({ username, onLogout }: TitleListPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('list'); // 'list', 'create', 'copy', 'merge', 'search', 'dataSearch', 'admin', 'import', 'detail', 'company', 'titleManagement', 'patentDetails'
@@ -419,9 +371,12 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
           titleNo={selectedTitleForDetail.no}
           titleName={selectedTitleForDetail.name}
           onBack={() => setActiveTab('list')}
-          onViewPatentDetails={(companyName, totalCount) => {
+          onViewPatentDetails={(companyName, totalCount, titleData) => {
             setSelectedCompany(companyName);
             setSelectedCompanyCount(totalCount);
+            if (titleData) {
+              setSelectedTitleForDetail({ no: titleData.titleNo, name: titleData.titleName });
+            }
             setActiveTab('patentDetails');
           }}
         />
@@ -496,7 +451,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
               <TableHeader>
                 <TableRow className="bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 hover:to-blue-100">
                   <TableHead className="w-[100px]"></TableHead>
-                  <TableHead className="w-[100px]">Ｎｏ</TableHead>
+                  <TableHead className="w-[100px]">No</TableHead>
                   <TableHead>保存データタイトル</TableHead>
                   <TableHead className="text-center">用途</TableHead>
                   <TableHead>部署名</TableHead>

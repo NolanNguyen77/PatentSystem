@@ -68,13 +68,31 @@ const upsertPatentClassifications = async (patentId: string, titleId: string, da
 };
 
 export const getPatentsByTitle = async (
-  titleId: string,
+  titleIdentifier: string,
   filters: {
     status?: 'evaluated' | 'unevaluated';
     search?: string;
     applicant?: string;
   }
 ) => {
+  // Accept either the Title.id (UUID) or the human-readable titleNo.
+  // If title not found, return an empty result (so frontend always receives JSON).
+  let titleId = titleIdentifier;
+  const titleById = await prisma.title.findUnique({ where: { id: titleIdentifier } });
+  if (!titleById) {
+    const titleByNo = await prisma.title.findUnique({ where: { titleNo: titleIdentifier } as any });
+    if (!titleByNo) {
+      return {
+        patents: [],
+        total: 0,
+        evaluatedCount: 0,
+        unevaluatedCount: 0,
+        progressRate: 0,
+      };
+    }
+    titleId = titleByNo.id;
+  }
+
   const where: any = {
     titleId,
   };
@@ -155,10 +173,27 @@ export const createPatent = async (data: CreatePatentData) => {
   const applicationDate = parseDate(data.applicationDate);
   const publicationDate = parseDate(data.publicationDate);
   const knownDate = parseDate(data.knownDate);
+  // Resolve titleId: allow callers to pass either the title UUID or the titleNo
+  let titleIdToUse = data.titleId;
+  if (!titleIdToUse) {
+    throw new AppError('titleId is required', 400);
+  }
 
-  const patent = await prisma.patent.create({
-    data: {
-      titleId: data.titleId,
+  // If the provided value is not a Title.id, try to resolve by titleNo
+  const existingTitleById = await prisma.title.findUnique({ where: { id: titleIdToUse } });
+  if (!existingTitleById) {
+    const existingByNo = await prisma.title.findUnique({ where: { titleNo: titleIdToUse } as any });
+    if (existingByNo) {
+      titleIdToUse = existingByNo.id;
+    } else {
+      throw new AppError('Title not found for provided titleId/titleNo', 400);
+    }
+  }
+
+  try {
+    const patent = await prisma.patent.create({
+      data: {
+        titleId: titleIdToUse,
       patentNo: data.patentNo,
       applicationNo: data.applicationNo,
       applicationDate,
@@ -179,19 +214,26 @@ export const createPatent = async (data: CreatePatentData) => {
       eventType: data.eventType,
       other: data.other,
       documentUrl: data.documentUrl,
-      evaluationStatus: data.evaluationStatus || '未評価',
-    },
-  });
+        evaluationStatus: data.evaluationStatus || '未評価',
+      },
+    });
 
-  // Auto-classify patent
-  if (applicationDate || publicationDate) {
-    const date = applicationDate || publicationDate;
-    if (date) {
-      await upsertPatentClassifications(patent.id, data.titleId, date);
+    // Auto-classify patent
+    if (applicationDate || publicationDate) {
+      const date = applicationDate || publicationDate;
+      if (date) {
+        await upsertPatentClassifications(patent.id, titleIdToUse, date);
+      }
     }
-  }
 
-  return patent;
+    return patent;
+  } catch (err: any) {
+    // Translate Prisma FK errors to a friendlier message
+    if (err && err.code === 'P2003') {
+      throw new AppError('Foreign key constraint violated: related record not found', 400);
+    }
+    throw err;
+  }
 };
 
 export const updatePatent = async (id: string, data: Partial<CreatePatentData>) => {

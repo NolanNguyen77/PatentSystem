@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
@@ -11,139 +11,128 @@ import { Textarea } from './ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { ScrollArea } from './ui/scroll-area';
 import { Input } from './ui/input';
+import { titleAPI, patentAPI } from '../services/api';
 
 interface TitleSearchFormProps {
   onBack?: () => void;
 }
 
+interface SearchResult {
+  no: string;
+  title: string;
+  dataCount: number;
+  department: string;
+  responsible: string;
+}
+
+interface PatentListItem {
+  documentNo: string;
+  applicationNo: string;
+  applicationDate: string;
+  publicationDate: string;
+  inventionName: string;
+  applicant: string;
+  publicationNo: string;
+  announcementNo: string;
+  registrationNo: string;
+  trialNo: string;
+  other: string;
+  stage: string;
+  event: string;
+  documentUrl: string;
+}
+
+interface HistoryItem {
+  id: string;
+  name: string;
+  value: string;
+}
+
+interface PatentDetail {
+  titleCode: string;
+  titleName: string;
+  publicationNo: string;
+  registrationNo: string;
+  applicant: string;
+  inventionName: string;
+  abstract: string;
+  claims: string;
+  inventor: string;
+  ipc: string;
+  applicationNo: string;
+  applicationDate: string;
+  publicationDate: string;
+  registrationDate: string;
+  fi: string;
+  fTerm: string;
+  publicationType: string;
+}
+
 export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
-  const [searchMethod, setSearchMethod] = useState('number'); // 'number' or 'condition'
+  const [searchMethod, setSearchMethod] = useState<'number' | 'condition'>('number');
   const [selectedTitles, setSelectedTitles] = useState<string[]>([]);
-  const [searchOption, setSearchOption] = useState('exact');
+  const [searchOption, setSearchOption] = useState<'exact' | 'partial'>('exact');
   const [patentCount, setPatentCount] = useState(0);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showListDialog, setShowListDialog] = useState(false);
   const [searchExpression, setSearchExpression] = useState('S2×S1');
-  const [historyItems, setHistoryItems] = useState([
-    { id: 'S1', name: '権利者・出願人名', value: 'アイ・ピー・ファイン株式会社' },
-    { id: 'S2', name: '権利者・出願人名', value: '任天堂' }
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [patentListData, setPatentListData] = useState<PatentListItem[]>([]);
+  const [isLoadingTitles, setIsLoadingTitles] = useState(true);
+  const [isLoadingPatents, setIsLoadingPatents] = useState(false);
+  const [patentDetail, setPatentDetail] = useState<PatentDetail>({
+    titleCode: '',
+    titleName: '',
+    publicationNo: '',
+    registrationNo: '',
+    applicant: '',
+    inventionName: '',
+    abstract: '',
+    claims: '',
+    inventor: '',
+    ipc: '',
+    applicationNo: '',
+    applicationDate: '',
+    publicationDate: '',
+    registrationDate: '',
+    fi: '',
+    fTerm: '',
+    publicationType: ''
+  });
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([
+    { id: 'S1', name: '権利者・出願人名', value: '' },
+    { id: 'S2', name: '権利者・出願人名', value: '' }
   ]);
 
-  // Mock search results - Updated with new data
-  const searchResults = [
-    {
-      no: '000032',
-      title: 'ひらかわ',
-      dataCount: '125',
-      department: '',
-      responsible: 'ひらかわ'
-    },
-    {
-      no: '000034',
-      title: 'グエン・ダイン・タン',
-      dataCount: '487',
-      department: '',
-      responsible: 'グエン・ダイン・タン'
-    },
-    {
-      no: '000040',
-      title: '廣川マコ',
-      dataCount: '56',
-      department: '',
-      responsible: 'グエン・ダイン・タン'
-    }
-  ];
-
-  // Mock patent list data
-  const patentListData = [
-    {
-      documentNo: '特許第7454310号',
-      applicationNo: '特願2023-147136',
-      applicationDate: '2023/9/11',
-      publicationDate: '2025/3/24',
-      inventionName: '特許情報管理システム',
-      applicant: 'アイ・ピー・ファイン株式会社',
-      publicationNo: '特開2025-040305',
-      announcementNo: '',
-      registrationNo: '特登-07454310',
-      trialNo: '',
-      other: '',
-      stage: '特許 有効',
-      event: '生年月日',
-      documentUrl: 'https://www.j-platpat.inpit.go.jp/c1801/PU/JP-2023-147136/10/ja'
-    },
-    {
-      documentNo: '特開2023-087022号',
-      applicationNo: '特願2023-087022',
-      applicationDate: '2022/3/3',
-      publicationDate: '2023/8/3',
-      inventionName: '持続可能なエネルギー',
-      applicant: '主要公開会社',
-      publicationNo: '特開2023-107712',
-      announcementNo: '',
-      registrationNo: '特登7383311',
-      trialNo: '',
-      other: '',
-      stage: '特許 有効',
-      event: '生年月日',
-      documentUrl: 'https://www.j-platpat.inpit.go.jp/c1801/PU/JP-2022-034545/10/ja'
-    },
-    {
-      documentNo: '特開2022-090653号',
-      applicationNo: '特願2022-090653',
-      applicationDate: '2021/9/8',
-      publicationDate: '2022/6/7',
-      inventionName: '先進材料科学技術',
-      applicant: '主要公開会社',
-      publicationNo: '特開2023-008963',
-      announcementNo: '',
-      registrationNo: '特登7154645',
-      trialNo: '',
-      other: '',
-      stage: '特許 有効',
-      event: '生年月日',
-      documentUrl: 'https://www.j-platpat.inpit.go.jp/c1801/PU/JP-2021-145845/10/ja'
-    }
-  ];
-
-  // Mock patent detail data
-  const patentDetail = {
-    titleCode: '000034',
-    titleName: 'グエン・ダイン・タン',
-    publicationNo: '特開2025-040305',
-    registrationNo: '特登-07454310',
-    applicant: 'アイ・ピー・ファイン株式会社',
-    inventionName: '特許情報管理システム',
-    abstract: `【要約】
-【課題】ユーザによる国際公開公報に対するその後の監視負担を軽減できる特許情報管理システムを提供すること。
-【解決手段】コンピュータがテーマに基づく公報一覧リストに、国際公開公報によるＷＯ案件データが含まれているか判断するＷＯ存在確認ステップＳ２１、ＷＯ案件データがある場合、ＷＯ案件データに対応する国内特許公報であるＪＰ案件データが公報一覧リストに含まれていか判断する対応ＪＰ存在確認ステップＳ２２、ＪＰ案件データがある場合、ＷＯ案件データとＪＰ案件データとを相互リンクする関連付けステップＳ２３、ＪＰ案件データがない場合、ＷＯ案件データに対応する国内出願番号があるか定期的に確認する対応ＪＰ出願番号確認ステップＳ２５、ＷＯ案件データに対応する国内出願番号がある場合、ＷＯ案件データに対応するＪＰ対応データを作成し、公報一覧リストに追加するＪＰ対応データ作成ステップＳ２８を実行する。
-【選択図】 図１`,
-    claims: `(57)
-【特許請求の範囲】
-【請求項１】
-設定したテーマに基づいて収集した特許公報データを蓄積し、蓄積した前記特許公報データの内容を評価し、評価結果を前記特許公報データと関連付けて蓄積する特許情報管理システムであって、
-コンピュータが、
-前記テーマに基づく公報一覧リストに、国際公開公報によるＷＯ案件データが含まれているかを判断するＷＯ存在確認ステップと、
-前記ＷＯ存在確認ステップで前記ＷＯ案件データが存在する場合には、前記ＷＯ案件データに対応する国内特許公報であるＪＰ案件データが前記公報一覧リストに含まいるかを判断する対応ＪＰ存在確認ステップと、
-前記対応ＪＰ存在確認ステップで、前記ＪＰ案件データが存在する場合には、前記ＷＯ案件データと前記ＪＰ案件データとを相互リンクする関連付けステップと、
-前記対応ＪＰ存在確認ステップで、前記ＪＰ案件データが存在しない場合には、前記ＷＯ案件データに対応する国内出願番号が存在するか否かを定期的に確認する対応ＪＰ出願番号確認ステップと、
-前記対応ＪＰ出願番号確認ステップで、前記ＷＯ案件データに対応する前記国内出願番号が存在する場合には、前記ＷＯ案件データに対応するＪＰ対応データを作成して、前記公報一覧リストに追加するＪＰ対応データ作成ステップと
-を実行する
-ことを特徴とする特許情報管理システム。`,
-    inventor: '古川　智昭|津村　惠美子|辻　麻美子|浅川　秀行',
-    ipc: 'G06Q 50/18',
-    applicationNo: '特願2023-147136',
-    applicationDate: '2023/09/11',
-    publicationDate: '2025/03/24',
-    registrationDate: '2024/03/13',
-    fi: 'G06Q 50/18 310',
-    fTerm: '5L049CC33 ; 5L050CC33',
-    publicationType: 'B9'
-  };
+  // Fetch titles from API
+  useEffect(() => {
+    const fetchTitles = async () => {
+      try {
+        console.log('🔄 Fetching titles for search...');
+        const result = await titleAPI.getAll();
+        
+        if (result.data) {
+          const titles = result.data.titles || (Array.isArray(result.data) ? result.data : []);
+          setSearchResults(titles.map((t: any, idx: number) => ({
+            no: t.no || `000${idx + 1}`,
+            title: t.titleName || t.name,
+            dataCount: t.patentCount || 0,
+            department: t.department || '',
+            responsible: t.creator || ''
+          })));
+        }
+      } catch (err) {
+        console.error('❌ Error fetching titles:', err);
+      } finally {
+        setIsLoadingTitles(false);
+      }
+    };
+    fetchTitles();
+  }, []);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedTitles(searchResults.map(r => r.no));
+      setSelectedTitles(searchResults.map((r: SearchResult) => r.no));
     } else {
       setSelectedTitles([]);
     }
@@ -153,7 +142,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
     if (checked) {
       setSelectedTitles([...selectedTitles, titleNo]);
     } else {
-      setSelectedTitles(selectedTitles.filter(no => no !== titleNo));
+      setSelectedTitles(selectedTitles.filter((no: string) => no !== titleNo));
     }
   };
 
@@ -162,7 +151,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
   };
 
   const handleDeleteHistory = (id: string) => {
-    setHistoryItems(historyItems.filter(item => item.id !== id));
+    setHistoryItems(historyItems.filter((item: HistoryItem) => item.id !== id));
   };
 
   const handleClearAllHistory = () => {
@@ -174,7 +163,6 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
   };
 
   const handleHistoryClick = (id: string) => {
-    // Add the history ID to the search expression
     if (searchExpression) {
       setSearchExpression(searchExpression + ' ' + id);
     } else {
@@ -288,7 +276,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
                         <TableCell className="border-r text-center">
                           <Checkbox 
                             checked={selectedTitles.includes(result.no)}
-                            onCheckedChange={(checked) => handleSelectTitle(result.no, checked as boolean)}
+                            onCheckedChange={(checked: boolean | 'indeterminate') => handleSelectTitle(result.no, typeof checked === 'boolean' ? checked : false)}
                           />
                         </TableCell>
                         <TableCell className="border-r text-xs text-center">{result.no}</TableCell>
@@ -437,7 +425,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
                         <TableCell className="border-r text-center">
                           <Checkbox 
                             checked={selectedTitles.includes(result.no)}
-                            onCheckedChange={(checked) => handleSelectTitle(result.no, checked as boolean)}
+                            onCheckedChange={(checked: boolean | 'indeterminate') => handleSelectTitle(result.no, typeof checked === 'boolean' ? checked : false)}
                           />
                         </TableCell>
                         <TableCell className="border-r text-xs text-center">{result.no}</TableCell>

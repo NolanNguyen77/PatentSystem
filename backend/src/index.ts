@@ -13,6 +13,9 @@ const app = express();
 // Security middleware
 app.use(helmet());
 
+// Disable ETag for API responses to avoid 304 responses for dynamic data
+app.disable('etag');
+
 // CORS
 const allowedOrigins = (env.CORS_ORIGIN).split(',').map(o => o.trim());
 app.use(
@@ -41,6 +44,13 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Prevent caching for API routes (ensure clients always receive JSON body)
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
 // API routes
 app.use('/api', routes);
 

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { titleAPI } from '../services/api';
 
 interface CopyDataFormProps {
   onClose?: () => void;
@@ -14,12 +15,31 @@ export function CopyDataForm({ onClose }: CopyDataFormProps) {
   const [copyBasicInfo, setCopyBasicInfo] = useState(true);
   const [copyProjectData, setCopyProjectData] = useState(false);
   const [copyCount, setCopyCount] = useState('1');
+  const [titles, setTitles] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Mock title data
-  const titles = [
-    { id: '000032', name: 'ひらかわ' },
-    { id: '000034', name: 'グエン・タイン・タン' }
-  ];
+  // Fetch titles from API
+  useEffect(() => {
+    const fetchTitles = async () => {
+      try {
+        console.log('🔄 Fetching titles for copy...');
+        const result = await titleAPI.getAll();
+        
+        if (result.data) {
+          const titleList = result.data.titles || (Array.isArray(result.data) ? result.data : []);
+          setTitles(titleList.map((t: any) => ({
+            id: t.id || t.no,
+            name: t.titleName || t.name
+          })));
+        }
+      } catch (err) {
+        console.error('❌ Error fetching titles:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchTitles();
+  }, []);
 
   const handleCopyExecute = () => {
     console.log('Copy executed:', {
@@ -76,7 +96,7 @@ export function CopyDataForm({ onClose }: CopyDataFormProps) {
             <Checkbox 
               id="copyBasicInfo"
               checked={copyBasicInfo}
-              onCheckedChange={(checked) => setCopyBasicInfo(!!checked)}
+              onCheckedChange={(checked: boolean | 'indeterminate') => setCopyBasicInfo(typeof checked === 'boolean' ? checked : false)}
             />
             <Label htmlFor="copyBasicInfo" className="cursor-pointer">
               保存タイトルの基本情報をコピーする
@@ -86,7 +106,7 @@ export function CopyDataForm({ onClose }: CopyDataFormProps) {
             <Checkbox 
               id="copyProjectData"
               checked={copyProjectData}
-              onCheckedChange={(checked) => setCopyProjectData(!!checked)}
+              onCheckedChange={(checked: boolean | 'indeterminate') => setCopyProjectData(typeof checked === 'boolean' ? checked : false)}
             />
             <Label htmlFor="copyProjectData" className="cursor-pointer">
               案件データもコピーする

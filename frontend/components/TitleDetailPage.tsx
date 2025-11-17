@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Filter, Download, FileText, Search, ChevronDown, RefreshCw, Settings, Lightbulb } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -18,40 +18,80 @@ import {
   TableHeader,
   TableRow,
 } from './ui/table';
+import { patentAPI } from '../services/api';
 
 interface TitleDetailPageProps {
   titleNo: string;
   titleName: string;
   onBack: () => void;
-  onViewPatentDetails?: (companyName: string, totalCount: number) => void;
+  onViewPatentDetails?: (companyName: string, totalCount: number, titleData?: any) => void;
 }
-
-// Mock data for patent matrix
-const patentData = [
-  { id: 1, company: '任天堂株式会社', total: 405, y20: 1, y19: 1, y18: '-', y17: 1, y16: 2, y15: 3, y14: 1, selected: false },
-  { id: 2, company: '株式会社ソニー・インタラクティブエンタテインメント', total: 343, y20: 1, y19: 1, y18: '-', y17: 2, y16: 2, y15: 1, selected: false },
-  { id: 3, company: 'アイ・ピー・ビー株式会社', total: 13, y20: '-', y19: '-', y18: '-', y17: '-', y16: '-', y15: '-', selected: false },
-  { id: 4, company: '楽天グループ株式会社', total: 9, y20: '-', y19: '-', y18: '-', y17: '-', y16: '-', y15: '-', selected: false },
-  { id: 5, company: '市金株式会社', total: 7, y20: '-', y19: '-', y18: '-', y17: '-', y16: '-', y15: '-', selected: false },
-  { id: 6, company: 'シー・ブル一株式会社', total: 5, y20: '-', y19: '-', y18: '-', y17: '-', y16: '-', y15: '-', selected: false },
-  { id: 7, company: '株式会社コナミデジタルエンタテインメント', total: 3, y20: '-', y19: '-', y18: '-', y17: '-', y16: '-', y15: '-', selected: false },
-  { id: 8, company: 'アルファスアルバイト・オートメーション株式会社', total: 3, y20: '-', y19: '-', y18: '-', y17: '-', y16: '-', y15: '-', selected: false },
-  { id: 9, company: '株式会社セガ・ゲームス', total: 2, y20: '-', y19: '-', y18: '-', y17: '-', y16: '-', y15: '-', selected: false },
-  { id: 10, company: '日本電産株式会社', total: 2, y20: '-', y19: '-', y18: '-', y17: '-', y16: '-', y15: '-', selected: false },
-  { id: 11, company: 'ブラザム工業株式会社', total: 1, y20: '-', y19: '-', y18: '-', y17: '-', y16: '-', y15: '-', selected: false },
-  { id: 12, company: 'トヨタ自動車株式会社', total: 1, y20: '-', y19: '-', y18: '-', y17: '-', y16: '-', y15: '-', selected: false },
-  { id: 13, company: '株式会社日本電気技研', total: 1, y20: '-', y19: '-', y18: '-', y17: '-', y16: '-', y15: '-', selected: false },
-];
 
 const years = ['20', '19', '18', '17', '16', '15', '14', '13', '12', '11', '10', '09', '08', '07', '06', '05', '04', '03', '02', '01'];
 
 export function TitleDetailPage({ titleNo, titleName, onBack, onViewPatentDetails }: TitleDetailPageProps) {
+  const [patentData, setPatentData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState('applicant'); // applicant, inventor, etc.
-  const [filterType, setFilterType] = useState('all'); // all, progress, unevaluated
-  const [dateFilter, setDateFilter] = useState('application'); // application, publication, registration, etc.
-  const [periodFilter, setPeriodFilter] = useState('year'); // year, month, week
+  const [viewMode, setViewMode] = useState('applicant');
+  const [filterType, setFilterType] = useState('all');
+  const [dateFilter, setDateFilter] = useState('application');
+  const [periodFilter, setPeriodFilter] = useState('year');
+
+  // Fetch patents from API on component mount
+  useEffect(() => {
+    const fetchPatentsByTitle = async () => {
+      try {
+        setIsLoading(true);
+        console.log('🔄 Fetching patents for title:', titleNo);
+        const result = await patentAPI.getByTitle(titleNo);
+
+        // Support different response wrappers: apiCall returns { data: ... }
+        // Backend controllers often return { data: result }, so payload may be nested.
+        const payload = result.data?.data ?? result.data ?? result;
+
+        if (payload && payload.patents) {
+          // Transform patents to patent matrix grouped by company
+          const patentsByCompany = new Map<string, any>();
+          
+          const patentsArray = Array.isArray(payload.patents) ? payload.patents : (Array.isArray(payload) ? payload : []);
+          console.debug('TitleDetailPage - patentsArray sample:', patentsArray.slice(0,3));
+
+          patentsArray.forEach((patent: any) => {
+            // Support multiple possible applicant fields from backend
+            const company = patent.applicant ?? patent.applicantName ?? patent.assignee ?? patent.owner ?? 'Unknown';
+            if (!patentsByCompany.has(company)) {
+              patentsByCompany.set(company, {
+                id: patentsByCompany.size + 1,
+                company: company,
+                total: 0,
+                y20: 0, y19: 0, y18: 0, y17: 0, y16: 0, y15: 0, y14: 0,
+                selected: false
+              });
+            }
+            patentsByCompany.get(company)!.total += 1;
+          });
+          
+          setPatentData(Array.from(patentsByCompany.values()));
+          console.log('✅ Loaded patents:', patentsByCompany.size, 'companies');
+        } else {
+          console.warn('⚠️ No patents found', payload);
+          setPatentData([]);
+        }
+      } catch (err) {
+        console.error('❌ Error fetching patents:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch patents');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (titleNo) {
+      fetchPatentsByTitle();
+    }
+  }, [titleNo]);
 
   // Generate columns based on period filter
   const getDateColumns = () => {
@@ -384,7 +424,7 @@ export function TitleDetailPage({ titleNo, titleName, onBack, onViewPatentDetail
                     <TableCell className="bg-white text-center border-r">
                       <button 
                         className="text-blue-600 hover:underline text-sm"
-                        onClick={() => onViewPatentDetails?.(item.company, item.total)}
+                        onClick={() => onViewPatentDetails?.(item.company, item.total, { titleNo, titleName })}
                       >
                         {item.total}
                       </button>

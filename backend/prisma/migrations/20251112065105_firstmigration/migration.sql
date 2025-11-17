@@ -2,7 +2,8 @@ BEGIN TRY
 
 BEGIN TRAN;
 
--- CreateTable
+
+-- TABLE
 CREATE TABLE [dbo].[users] (
     [id] NVARCHAR(1000) NOT NULL,
     [user_id] NVARCHAR(1000) NOT NULL,
@@ -20,7 +21,7 @@ CREATE TABLE [dbo].[users] (
     CONSTRAINT [users_user_id_key] UNIQUE NONCLUSTERED ([user_id])
 );
 
--- CreateTable
+
 CREATE TABLE [dbo].[departments] (
     [id] NVARCHAR(1000) NOT NULL,
     [no] NVARCHAR(1000) NOT NULL,
@@ -34,7 +35,7 @@ CREATE TABLE [dbo].[departments] (
     CONSTRAINT [departments_no_key] UNIQUE NONCLUSTERED ([no])
 );
 
--- CreateTable
+
 CREATE TABLE [dbo].[titles] (
     [id] NVARCHAR(1000) NOT NULL,
     [title_no] NVARCHAR(1000) NOT NULL,
@@ -56,7 +57,7 @@ CREATE TABLE [dbo].[titles] (
     CONSTRAINT [titles_title_no_key] UNIQUE NONCLUSTERED ([title_no])
 );
 
--- CreateTable
+
 CREATE TABLE [dbo].[title_users] (
     [id] NVARCHAR(1000) NOT NULL,
     [title_id] NVARCHAR(1000) NOT NULL,
@@ -72,7 +73,7 @@ CREATE TABLE [dbo].[title_users] (
     CONSTRAINT [title_users_title_id_user_id_key] UNIQUE NONCLUSTERED ([title_id],[user_id])
 );
 
--- CreateTable
+
 CREATE TABLE [dbo].[patents] (
     [id] NVARCHAR(1000) NOT NULL,
     [title_id] NVARCHAR(1000) NOT NULL,
@@ -102,7 +103,7 @@ CREATE TABLE [dbo].[patents] (
     CONSTRAINT [patents_pkey] PRIMARY KEY CLUSTERED ([id])
 );
 
--- CreateTable
+
 CREATE TABLE [dbo].[evaluations] (
     [id] NVARCHAR(1000) NOT NULL,
     [patent_id] NVARCHAR(1000) NOT NULL,
@@ -118,7 +119,7 @@ CREATE TABLE [dbo].[evaluations] (
     CONSTRAINT [evaluations_pkey] PRIMARY KEY CLUSTERED ([id])
 );
 
--- CreateTable
+
 CREATE TABLE [dbo].[patent_classifications] (
     [id] NVARCHAR(1000) NOT NULL,
     [patent_id] NVARCHAR(1000) NOT NULL,
@@ -130,7 +131,7 @@ CREATE TABLE [dbo].[patent_classifications] (
     CONSTRAINT [patent_classifications_patent_id_title_id_classification_type_classification_value_key] UNIQUE NONCLUSTERED ([patent_id],[title_id],[classification_type],[classification_value])
 );
 
--- CreateTable
+
 CREATE TABLE [dbo].[attachments] (
     [id] NVARCHAR(1000) NOT NULL,
     [title_id] NVARCHAR(1000) NOT NULL,
@@ -144,7 +145,7 @@ CREATE TABLE [dbo].[attachments] (
     CONSTRAINT [attachments_pkey] PRIMARY KEY CLUSTERED ([id])
 );
 
--- CreateTable
+
 CREATE TABLE [dbo].[activity_logs] (
     [id] NVARCHAR(1000) NOT NULL,
     [user_id] NVARCHAR(1000),
@@ -158,82 +159,34 @@ CREATE TABLE [dbo].[activity_logs] (
     CONSTRAINT [activity_logs_pkey] PRIMARY KEY CLUSTERED ([id])
 );
 
--- CreateIndex
+-- CREATE INDEX
 CREATE NONCLUSTERED INDEX [patents_title_id_idx] ON [dbo].[patents]([title_id]);
-
--- CreateIndex
 CREATE NONCLUSTERED INDEX [patents_applicant_idx] ON [dbo].[patents]([applicant]);
-
--- CreateIndex
 CREATE NONCLUSTERED INDEX [patents_application_date_idx] ON [dbo].[patents]([application_date]);
-
--- CreateIndex
 CREATE NONCLUSTERED INDEX [patents_publication_date_idx] ON [dbo].[patents]([publication_date]);
-
--- CreateIndex
 CREATE NONCLUSTERED INDEX [evaluations_patent_id_idx] ON [dbo].[evaluations]([patent_id]);
-
--- CreateIndex
 CREATE NONCLUSTERED INDEX [evaluations_title_id_idx] ON [dbo].[evaluations]([title_id]);
-
--- CreateIndex
 CREATE NONCLUSTERED INDEX [evaluations_user_id_idx] ON [dbo].[evaluations]([user_id]);
-
--- CreateIndex
 CREATE NONCLUSTERED INDEX [patent_classifications_title_id_classification_type_classification_value_idx] ON [dbo].[patent_classifications]([title_id], [classification_type], [classification_value]);
-
--- CreateIndex
 CREATE NONCLUSTERED INDEX [attachments_title_id_idx] ON [dbo].[attachments]([title_id]);
-
--- CreateIndex
 CREATE NONCLUSTERED INDEX [activity_logs_user_id_idx] ON [dbo].[activity_logs]([user_id]);
-
--- CreateIndex
 CREATE NONCLUSTERED INDEX [activity_logs_title_id_idx] ON [dbo].[activity_logs]([title_id]);
-
--- CreateIndex
 CREATE NONCLUSTERED INDEX [activity_logs_target_type_target_id_idx] ON [dbo].[activity_logs]([target_type], [target_id]);
-
--- CreateIndex
 CREATE NONCLUSTERED INDEX [activity_logs_created_at_idx] ON [dbo].[activity_logs]([created_at]);
 
--- AddForeignKey
-ALTER TABLE [dbo].[users] ADD CONSTRAINT [users_department_id_fkey] FOREIGN KEY ([department_id]) REFERENCES [dbo].[departments]([id]) ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE [dbo].[titles] ADD CONSTRAINT [titles_parent_title_id_fkey] FOREIGN KEY ([parent_title_id]) REFERENCES [dbo].[titles]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
-
--- AddForeignKey
+-- ADD FOREIGN KEY
+ALTER TABLE [dbo].[users]       ADD CONSTRAINT [users_department_id_fkey] FOREIGN KEY ([department_id]) REFERENCES [dbo].[departments]([id]) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE [dbo].[titles]      ADD CONSTRAINT [titles_parent_title_id_fkey] FOREIGN KEY ([parent_title_id]) REFERENCES [dbo].[titles]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 ALTER TABLE [dbo].[title_users] ADD CONSTRAINT [title_users_title_id_fkey] FOREIGN KEY ([title_id]) REFERENCES [dbo].[titles]([id]) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE [dbo].[title_users] ADD CONSTRAINT [title_users_user_id_fkey] FOREIGN KEY ([user_id]) REFERENCES [dbo].[users]([id]) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE [dbo].[patents] ADD CONSTRAINT [patents_title_id_fkey] FOREIGN KEY ([title_id]) REFERENCES [dbo].[titles]([id]) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
+ALTER TABLE [dbo].[patents]     ADD CONSTRAINT [patents_title_id_fkey] FOREIGN KEY ([title_id]) REFERENCES [dbo].[titles]([id]) ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE [dbo].[evaluations] ADD CONSTRAINT [evaluations_patent_id_fkey] FOREIGN KEY ([patent_id]) REFERENCES [dbo].[patents]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
-
--- AddForeignKey
 ALTER TABLE [dbo].[evaluations] ADD CONSTRAINT [evaluations_title_id_fkey] FOREIGN KEY ([title_id]) REFERENCES [dbo].[titles]([id]) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE [dbo].[evaluations] ADD CONSTRAINT [evaluations_user_id_fkey] FOREIGN KEY ([user_id]) REFERENCES [dbo].[users]([id]) ON DELETE NO ACTION ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE [dbo].[patent_classifications] ADD CONSTRAINT [patent_classifications_patent_id_fkey] FOREIGN KEY ([patent_id]) REFERENCES [dbo].[patents]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
-
--- AddForeignKey
 ALTER TABLE [dbo].[patent_classifications] ADD CONSTRAINT [patent_classifications_title_id_fkey] FOREIGN KEY ([title_id]) REFERENCES [dbo].[titles]([id]) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE [dbo].[attachments] ADD CONSTRAINT [attachments_title_id_fkey] FOREIGN KEY ([title_id]) REFERENCES [dbo].[titles]([id]) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
+ALTER TABLE [dbo].[attachments]   ADD CONSTRAINT [attachments_title_id_fkey] FOREIGN KEY ([title_id]) REFERENCES [dbo].[titles]([id]) ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE [dbo].[activity_logs] ADD CONSTRAINT [activity_logs_user_id_fkey] FOREIGN KEY ([user_id]) REFERENCES [dbo].[users]([id]) ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE [dbo].[activity_logs] ADD CONSTRAINT [activity_logs_title_id_fkey] FOREIGN KEY ([title_id]) REFERENCES [dbo].[titles]([id]) ON DELETE SET NULL ON UPDATE CASCADE;
 
 COMMIT TRAN;

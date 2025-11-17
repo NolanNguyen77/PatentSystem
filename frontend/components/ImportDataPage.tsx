@@ -53,34 +53,32 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
       const file = e.target.files[0];
       setSelectedFile(file);
       
-      // Nintendo CSV columns from the actual file
-      const mockColumns = [
-        '文献番号',
-        '出願番号',
-        '出願日',
-        '公開日',
-        '発明の名称/出願人/権利者',
-        '公開番号',
-        '公告番号',
-        '登録番号',
-        '審判番号',
-        'その他',
-        'ステージ',
-        'パテント百文図URL',
-        '落合#',
-        '公報公文<URL>'
-      ];
-      setCsvColumns(mockColumns);
-      
-      // Auto-map exact matches
-      const autoMapping: Record<string, string> = {};
-      systemFields.forEach(field => {
-        const exactMatch = mockColumns.find(col => col === field.label);
-        if (exactMatch) {
-          autoMapping[field.key] = exactMatch;
+      // Parse CSV file to get headers
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const text = event.target?.result as string;
+          const lines = text.trim().split('\n');
+          if (lines.length > 0) {
+            // Parse first line as header
+            const csvColumns = lines[0].split(',').map(col => col.trim());
+            setCsvColumns(csvColumns);
+            
+            // Auto-map exact matches
+            const autoMapping: Record<string, string> = {};
+            systemFields.forEach(field => {
+              const exactMatch = csvColumns.find(col => col === field.label);
+              if (exactMatch) {
+                autoMapping[field.key] = exactMatch;
+              }
+            });
+            setColumnMapping(autoMapping);
+          }
+        } catch (err) {
+          console.error('Error parsing CSV:', err);
         }
-      });
-      setColumnMapping(autoMapping);
+      };
+      reader.readAsText(file);
     }
   };
 
@@ -96,15 +94,40 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
     }));
   };
 
-  const handleSaveMapping = () => {
-    // Mock import statistics
-    const stats = {
-      total: 774,
-      saved: 766,
-      updated: 0,
-      skipped: 8
-    };
-    setImportStats(stats);
+  const handleSaveMapping = async () => {
+    // Call API to process import with mapped columns
+    try {
+      console.log('🔄 Processing import...');
+      const token = localStorage.getItem('authToken');
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+      
+      // Send import request to backend
+      const res = await fetch('http://localhost:4001/api/patents/import', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          columnMapping,
+          titleNo
+        })
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        const stats = {
+          total: data.data?.total || 0,
+          saved: data.data?.saved || 0,
+          updated: data.data?.updated || 0,
+          skipped: data.data?.skipped || 0
+        };
+        setImportStats(stats);
+        console.log('✅ Import completed:', stats);
+      }
+    } catch (err) {
+      console.error('❌ Error processing import:', err);
+    }
     setCurrentStep('result');
   };
 

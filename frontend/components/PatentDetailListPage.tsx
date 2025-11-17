@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Trash2, FileText, Users, RefreshCw, Save } from 'lucide-react';
 import { Button } from './ui/button';
 import { 
@@ -13,6 +13,7 @@ import { Checkbox } from './ui/checkbox';
 import { AssignmentDialog } from './AssignmentDialog';
 import { DetailDialog } from './DetailDialog';
 import { ExportDataDialog } from './ExportDataDialog';
+import { patentAPI } from '../services/api';
 
 interface PatentDetailListPageProps {
   titleNo: string;
@@ -23,68 +24,24 @@ interface PatentDetailListPageProps {
 }
 
 interface Patent {
-  id: number;
-  code: string;
-  patentNumber: string;
-  documentType: string;
-  applicationDate: string;
-  publicationNumber: string;
-  publicationDate: string;
-  documentSubmission: string;
-  trialDate: string;
-  gazettePubDate: string;
-  documentPC: string;
-  applicantName: string;
-  inventionName: string;
+  id: string;
+  patentNo?: string;
+  patentNumber?: string;
+  applicationNo?: string;
+  applicationDate?: string;
+  publicationNo?: string;
+  publicationNumber?: string;
+  publicationDate?: string;
+  applicant?: string;
+  applicantName?: string;
+  inventionName?: string;
+  documentType?: string;
+  documentSubmission?: string;
+  trialDate?: string;
+  gazettePubDate?: string;
+  documentPC?: string;
+  code?: string;
 }
-
-const mockPatents: Patent[] = [
-  {
-    id: 1,
-    code: 'A',
-    patentNumber: 'HI2024-053740',
-    documentType: '',
-    applicationDate: '2024/04/19',
-    publicationNumber: '登録2025-164123',
-    publicationDate: '',
-    documentSubmission: '',
-    trialDate: '',
-    gazettePubDate: '',
-    documentPC: '',
-    applicantName: '末×グループ株式会社',
-    inventionName: '[発明の名称] 吸収性物品個包装体パッケージ'
-  },
-  {
-    id: 2,
-    code: 'B',
-    patentNumber: 'HI2024-053741',
-    documentType: '',
-    applicationDate: '2024/05/20',
-    publicationNumber: '登録2025-164124',
-    publicationDate: '',
-    documentSubmission: '',
-    trialDate: '',
-    gazettePubDate: '',
-    documentPC: '',
-    applicantName: '末×グループ株式会社',
-    inventionName: '[発明の名称] 洗浄剤組成物'
-  },
-  {
-    id: 3,
-    code: 'C',
-    patentNumber: 'HI2024-053742',
-    documentType: '',
-    applicationDate: '2024/06/15',
-    publicationNumber: '登録2025-164125',
-    publicationDate: '',
-    documentSubmission: '',
-    trialDate: '',
-    gazettePubDate: '',
-    documentPC: '',
-    applicantName: '末×グループ株式会社',
-    inventionName: '[発明の名称] 洗浄剤組成物'
-  }
-];
 
 export function PatentDetailListPage({ 
   titleNo, 
@@ -93,33 +50,73 @@ export function PatentDetailListPage({
   totalCount,
   onBack 
 }: PatentDetailListPageProps) {
-  const [patents] = useState<Patent[]>(mockPatents);
+  const [patents, setPatents] = useState<Patent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isAssignmentDialogOpen, setIsAssignmentDialogOpen] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
-  const [selectedPatentId, setSelectedPatentId] = useState<number | null>(null);
-  const [patentStates, setPatentStates] = useState<{[key: number]: {
+  const [selectedPatentId, setSelectedPatentId] = useState<string | null>(null);
+  const [patentStates, setPatentStates] = useState<{[key: string]: {
     topEvaluation: string;
     bottomEvaluation: string;
     abstract: string;
     claims: string;
     reasonInput: string;
     toTrash: boolean;
-  }}>(
-    mockPatents.reduce((acc, patent) => {
-      acc[patent.id] = {
-        topEvaluation: '未評価',
-        bottomEvaluation: '未評価',
-        abstract: '',
-        claims: '',
-        reasonInput: '',
-        toTrash: false
-      };
-      return acc;
-    }, {} as any)
-  );
+  }}>({});
 
-  const updatePatentState = (id: number, field: string, value: any) => {
+  // Fetch patents from API
+  useEffect(() => {
+    const fetchPatents = async () => {
+      try {
+        setIsLoading(true);
+        console.log('🔄 Fetching patents for company:', companyName);
+        
+        const result = await patentAPI.getByCompany(companyName, {
+          search: companyName
+        });
+
+        // Normalize possible response wrappers: apiCall -> { data }, controller -> { data: result }
+        const payload = result.data?.data ?? result.data ?? result;
+        console.debug('PatentDetailListPage - payload sample:', payload?.patents ? payload.patents.slice(0,3) : payload);
+
+        if (payload) {
+          const patentList = Array.isArray(payload.patents) ? payload.patents : (Array.isArray(payload) ? payload : (payload.data ?? []));
+          setPatents(patentList);
+          
+          // Initialize patent states
+          const initialStates: {[key: string]: any} = {};
+          patentList.forEach((patent: Patent) => {
+            initialStates[patent.id] = {
+              topEvaluation: '未評価',
+              bottomEvaluation: '未評価',
+              abstract: '',
+              claims: '',
+              reasonInput: '',
+              toTrash: false
+            };
+          });
+          setPatentStates(initialStates);
+          console.log('✅ Loaded patents:', patentList.length);
+        } else {
+          console.warn('⚠️ No patents found', payload);
+          setPatents([]);
+        }
+      } catch (err) {
+        console.error('❌ Error fetching patents:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch patents');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (companyName && titleNo) {
+      fetchPatents();
+    }
+  }, [companyName, titleNo]);
+
+  const updatePatentState = (id: string, field: string, value: any) => {
     setPatentStates(prev => ({
       ...prev,
       [id]: {
@@ -129,7 +126,7 @@ export function PatentDetailListPage({
     }));
   };
 
-  const handleDetailClick = (patentId: number) => {
+  const handleDetailClick = (patentId: string) => {
     setSelectedPatentId(patentId);
     setShowDetailDialog(true);
   };
@@ -325,7 +322,7 @@ export function PatentDetailListPage({
                     <div className="flex items-center gap-3">
                       <Select 
                         value={patentStates[patent.id].bottomEvaluation} 
-                        onValueChange={(value) => updatePatentState(patent.id, 'bottomEvaluation', value)}
+                        onValueChange={(value: string) => updatePatentState(patent.id, 'bottomEvaluation', value)}
                       >
                         <SelectTrigger className="w-[180px]">
                           <SelectValue />
@@ -342,7 +339,7 @@ export function PatentDetailListPage({
                         <Checkbox 
                           id={`trash-${patent.id}`}
                           checked={patentStates[patent.id].toTrash}
-                          onCheckedChange={(checked) => updatePatentState(patent.id, 'toTrash', checked as boolean)}
+                          onCheckedChange={(checked: boolean | 'indeterminate') => updatePatentState(patent.id, 'toTrash', typeof checked === 'boolean' ? checked : false)}
                         />
                         <label htmlFor={`trash-${patent.id}`} className="text-sm cursor-pointer">
                           ゴミ箱へ
@@ -377,7 +374,7 @@ export function PatentDetailListPage({
       <DetailDialog
         isOpen={showDetailDialog}
         onClose={() => setShowDetailDialog(false)}
-        patent={selectedPatent}
+        patent={selectedPatent as any}
       />
 
       {/* Export Dialog */}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Save, AlertCircle, Plus, Trash2, Check, Search, ArrowLeft, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -12,6 +12,7 @@ import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { ColorSelect } from './ColorSelect';
+import { titleAPI } from '../services/api';
 
 interface CreateTitleFormProps {
   onBack?: () => void;
@@ -34,40 +35,69 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
 
-  // Mock user data
-  const [users] = useState([
-    { id: 1, name: 'グエン・タン・タン', userId: '', department: '調査力部所', canEvaluate: true }
-  ]);
+  // Fetch all users and departments from API
+  const [users, setUsers] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [parentTitles, setParentTitles] = useState<any[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
-  // Mock all users for search dialog
-  const [allUsers] = useState([
-    { userId: 'asakawa', name: 'あさかわ', dept: '法人営業', permission: '管理者' },
-    { userId: 'hirakawa', name: 'ひらかわ', dept: '調査力開発', permission: '管理者' },
-    { userId: 'm_fmn01', name: '部門責任者　０１', dept: 'その他開発', permission: '管理者' },
-    { userId: 'm_fmn02', name: '部門責任者　０２', dept: 'その他開発', permission: '管理者' },
-    { userId: 'm_lpm01', name: '一般　０１', dept: '調査力開発', permission: '一般' },
-    { userId: 'm_lpm02', name: '一般　０２', dept: '調査力開発', permission: '一般' },
-    { userId: 'm_lpm03', name: '一般　０３', dept: '調査力開発', permission: '一般' },
-    { userId: 'maruo', name: 'まるお', dept: '調査力開発', permission: '管理者' },
-    { userId: 'Nguyen', name: 'グエン・タイン・タン', dept: '調査力開発', permission: '管理者' },
-    { userId: 'shimizu', name: 'しみず', dept: '個人営業', permission: '管理者' },
-    { userId: 'shimizu1', name: 'しみず１', dept: 'その他開発', permission: '管理者' },
-    { userId: 'shimizu2', name: 'しみず２', dept: '構佐', permission: '管理者' },
-    { userId: 'shimizu3', name: 'しみず３', dept: 'その他開発', permission: '管理者' },
-    { userId: 'tsuji', name: 'つじま', dept: '調査力開発', permission: '管理者' },
-    { userId: 'yamamoto', name: 'やまもと', dept: '調査力開発', permission: '管理者' },
-    { userId: 'yamamoto1', name: 'やまもと１', dept: '調査力開発', permission: '管理者' },
-    { userId: 'yamamoto2', name: 'やまもと２', dept: '調査力開発', permission: '管理者' },
-  ]);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        console.log('🔄 Fetching users, departments, and parent titles...');
+        const token = localStorage.getItem('authToken');
+        const headers = {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        };
 
-  // Mock department data
-  const [departments] = useState([
-    { id: 1, displayOrder: 1, no: '000002', name: 'その他開発', abbr: '', userCount: 4 },
-    { id: 2, displayOrder: 2, no: '000003', name: '個人営業', abbr: '', userCount: 1 },
-    { id: 3, displayOrder: 3, no: '000001', name: '調査力開発', abbr: '', userCount: 10 },
-    { id: 4, displayOrder: 4, no: '000005', name: '構佐', abbr: '', userCount: 1 },
-    { id: 5, displayOrder: 5, no: '000004', name: '法人営業', abbr: '', userCount: 1 }
-  ]);
+        // Fetch users
+        const usersRes = await fetch('http://localhost:4001/api/users', { headers });
+        if (usersRes.ok) {
+          const usersData = await usersRes.json();
+          if (usersData.data && usersData.data.users) {
+            setAllUsers(usersData.data.users);
+            setUsers([{ 
+              id: 1, 
+              name: usersData.data.users[0]?.name || 'User', 
+              userId: usersData.data.users[0]?.userId || '', 
+              department: '調査力部所', 
+              canEvaluate: true 
+            }]);
+          }
+        }
+        
+        // Fetch departments
+        const deptsRes = await fetch('http://localhost:4001/api/departments', { headers });
+        if (deptsRes.ok) {
+          const deptsData = await deptsRes.json();
+          if (deptsData.data && deptsData.data.departments) {
+            setDepartments(deptsData.data.departments);
+          }
+        }
+
+        // Fetch parent titles
+        try {
+          const titlesResult = await titleAPI.getAll();
+          if (titlesResult.data) {
+            const titles = titlesResult.data.titles || (Array.isArray(titlesResult.data) ? titlesResult.data : []);
+            setParentTitles(titles);
+            console.log('✅ Loaded parent titles:', titles.length);
+          }
+        } catch (err) {
+          console.error('❌ Error fetching parent titles:', err);
+        }
+        
+        console.log('✅ Loaded users and departments');
+      } catch (err) {
+        console.error('❌ Error fetching data:', err);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   // Mock department users
   const departmentUsers = {
@@ -100,16 +130,36 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
     }
   };
 
-  const handleExecuteSettings = () => {
+  const handleExecuteSettings = async () => {
     // Collect all users from selected departments
-    const allUsers: any[] = [];
-    selectedDepartments.forEach(deptId => {
-      const deptUsersList = departmentUsers[deptId] || [];
-      allUsers.push(...deptUsersList);
-    });
-    
-    // Update the main user list with selected department users
-    setSelectedUsers(allUsers);
+    try {
+      const token = localStorage.getItem('authToken');
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+      
+      const collectedUsers: any[] = [];
+      
+      for (const deptId of selectedDepartments) {
+        try {
+          const res = await fetch(`http://localhost:4001/api/departments/${deptId}/users`, { headers });
+          if (res.ok) {
+            const data = await res.json();
+            const deptUsers = data.data?.users || [];
+            collectedUsers.push(...deptUsers);
+          }
+        } catch (err) {
+          console.error(`Error fetching users for department ${deptId}:`, err);
+        }
+      }
+      
+      // Update the main user list with selected department users
+      setSelectedUsers(collectedUsers);
+      console.log('✅ Added users from selected departments:', collectedUsers.length);
+    } catch (err) {
+      console.error('❌ Error executing department settings:', err);
+    }
     
     // Close the dialog
     setShowDepartmentDialog(false);
@@ -295,9 +345,11 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
                     <SelectValue placeholder="一選択してください" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="000034">000034：グエン・ダイン・タン</SelectItem>
-                    <SelectItem value="000032">000032：ひらかわ</SelectItem>
-                    <SelectItem value="000035">000035：コピー ～ グエン・ダイブ・タン</SelectItem>
+                    {parentTitles.map((title: any) => (
+                      <SelectItem key={title.id || title.no} value={title.no || title.id}>
+                        {title.no}：{title.titleName || title.name || title.title}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -326,8 +378,8 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
                   <Checkbox 
                     id="disallow-eval"
                     checked={disallowEvaluation}
-                    onCheckedChange={(checked) => {
-                      setDisallowEvaluation(!!checked);
+                    onCheckedChange={(checked: boolean | 'indeterminate') => {
+                      setDisallowEvaluation(typeof checked === 'boolean' ? checked : false);
                       if (checked) setAllowEvaluation(false);
                     }}
                   />
@@ -339,8 +391,8 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
                   <Checkbox 
                     id="allow-eval"
                     checked={allowEvaluation}
-                    onCheckedChange={(checked) => {
-                      setAllowEvaluation(!!checked);
+                    onCheckedChange={(checked: boolean | 'indeterminate') => {
+                      setAllowEvaluation(typeof checked === 'boolean' ? checked : false);
                       if (checked) setDisallowEvaluation(false);
                     }}
                   />
@@ -528,7 +580,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
                         <TableCell className="text-center">
                           <Checkbox 
                             checked={selectedDepartments.includes(dept.id)}
-                            onCheckedChange={(checked) => handleDepartmentSelect(dept.id, checked)}
+                            onCheckedChange={(checked: boolean | 'indeterminate') => handleDepartmentSelect(dept.id, typeof checked === 'boolean' ? checked : false)}
                           />
                         </TableCell>
                         <TableCell>{dept.no}</TableCell>
