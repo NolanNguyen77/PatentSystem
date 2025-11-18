@@ -24,6 +24,8 @@ model User {
 
   department   Department?   @relation(fields: [departmentId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   titleUsers   TitleUser[]
+  // Titles where this user is the main owner (主担当)
+  mainOwnedTitles Title[] @relation("TitleMainOwner")
   evaluations  Evaluation[]
   activityLogs ActivityLog[]
 
@@ -54,6 +56,8 @@ model Title {
   dataType                  String   @default("特許") @map("data_type") // 特許/論文/意匠/商標/フリー
   markColor                         String?  @map("mark_color") // Hex color code
   parentTitleId                     String?  @map("parent_title_id")
+  // Main owner (主担当) convenience FK. Optional to avoid breaking existing data.
+  mainOwnerId                       String?  @map("main_owner_id")
   saveDate                          String   @map("save_date") // Format: YYYY/MM
   disallowEvaluation                Boolean  @default(false) @map("disallow_evaluation")
   allowEvaluation                   Boolean  @default(true) @map("allow_evaluation")
@@ -67,6 +71,7 @@ model Title {
 
   parentTitle     Title?                 @relation("TitleHierarchy", fields: [parentTitleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   childTitles     Title[]                @relation("TitleHierarchy")
+  mainOwner       User?                  @relation("TitleMainOwner", fields: [mainOwnerId], references: [id], onDelete: SetNull)
   titleUsers      TitleUser[]
   patents         Patent[]
   evaluations     Evaluation[]
@@ -78,12 +83,16 @@ model Title {
 }
 
 // Title-User relationship (担当者)
+// DEPRECATED: Use TitleUserPermission instead. Kept for backward compatibility.
 model TitleUser {
   id                String   @id @default(uuid())
   titleId           String   @map("title_id")
   userId            String   @map("user_id")
   isMainResponsible Boolean  @default(false) @map("is_main_responsible")
-  permission        String   @default("一般") // 管理者/一般/閲覧
+  // Permission flags (mutually exclusive: exactly one should be true)
+  isAdmin           Boolean  @default(false) @map("is_admin")     // 管理者
+  isGeneral         Boolean  @default(true) @map("is_general")    // 一般 (default)
+  isViewer          Boolean  @default(false) @map("is_viewer")    // 閲覧
   evalEmail         Boolean  @default(false) @map("eval_email")
   confirmEmail      Boolean  @default(false) @map("confirm_email")
   displayOrder      Int      @default(0) @map("display_order")
@@ -91,11 +100,13 @@ model TitleUser {
   updatedAt         DateTime @updatedAt @map("updated_at")
 
   title Title @relation(fields: [titleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([titleId, userId])
   @@map("title_users")
 }
+
+
 
 // Patents table
 model Patent {
@@ -151,7 +162,7 @@ model Evaluation {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   patent Patent @relation(fields: [patentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  title  Title  @relation(fields: [titleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  title  Title  @relation(fields: [titleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   user   User   @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: Cascade)
 
   @@index([patentId])
@@ -207,8 +218,8 @@ model ActivityLog {
   ipAddress  String?  @map("ip_address")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  title Title? @relation(fields: [titleId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  user  User?  @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  title Title? @relation(fields: [titleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([userId])
   @@index([titleId])

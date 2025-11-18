@@ -15,12 +15,20 @@ export const authenticate = async (
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.warn('Auth failed: No Authorization header');
       res.status(401).json({ error: 'No token provided' });
       return;
     }
      // Extract token
     const token = authHeader.substring(7);
-    const payload = verifyToken(token);
+    let payload;
+    try {
+      payload = verifyToken(token);
+    } catch (err: any) {
+      console.warn('Auth failed: token verification error', err?.message || err);
+      res.status(401).json({ error: 'Invalid or expired token' });
+      return;
+    }
     
     // Verify user still exists and is active
     const user = await prisma.user.findUnique({
@@ -29,6 +37,7 @@ export const authenticate = async (
     });
     
     if (!user || !user.isActive) {
+      console.warn('Auth failed: user not found or inactive', { payloadUserId: payload.userId, found: !!user });
       res.status(401).json({ error: 'User not found or inactive' });
       return;
     }
@@ -40,6 +49,7 @@ export const authenticate = async (
     
     next();
   } catch (error) {
+    console.error('Auth middleware unexpected error', error);
     res.status(401).json({ error: 'Invalid or expired token' });
   }
 };

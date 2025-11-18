@@ -49,9 +49,19 @@ export const getAllTitles = async (
   }
 
   // Get titles user can view
-  const titles = await prisma.title.findMany({
+  const titles = (await prisma.title.findMany({
     where,
     include: {
+      mainOwner: {
+        select: {
+          id: true,
+          name: true,
+          userId: true,
+          department: {
+            select: { name: true }
+          }
+        }
+      },
       titleUsers: {
         include: {
           user: {
@@ -78,11 +88,11 @@ export const getAllTitles = async (
           patents: true,
         },
       },
-    },
+    } as any,
     skip,
     take: limit,
     orderBy: { createdAt: 'desc' },
-  });
+  })) as any;
 
   // Filter by permission
   const accessibleTitles = [];
@@ -94,19 +104,24 @@ export const getAllTitles = async (
   }
 
   // Calculate stats
-  const titlesWithStats = accessibleTitles.map((title) => {
+  const titlesWithStats = accessibleTitles.map((title: any) => {
     const patents = title.patents;
     const total = patents.length;
-    const evaluated = patents.filter((p) => p.evaluationStatus !== '未評価').length;
-    const notEvaluated = patents.filter((p) => p.evaluationStatus === '未評価').length;
+    const evaluated = patents.filter((p: any) => p.evaluationStatus !== '未評価').length;
+    const notEvaluated = patents.filter((p: any) => p.evaluationStatus === '未評価').length;
     const progressRate = total > 0 ? (evaluated / total) * 100 : 0;
+
+    // Prefer explicit mainOwner relation when present
+    const mainOwner = (title as any).mainOwner;
+    const responsibleName = mainOwner?.name || title.titleUsers.find((tu: any) => tu.isMainResponsible)?.user.name || '';
+    const departmentName = mainOwner?.department?.name || title.titleUsers.find((tu: any) => tu.isMainResponsible)?.user.department?.name || '';
 
     return {
       id: title.id,
       no: title.titleNo,
       title: title.titleName,
-      department: title.titleUsers.find((tu) => tu.isMainResponsible)?.user.department?.name || '',
-      responsible: title.titleUsers.find((tu) => tu.isMainResponsible)?.user.name || '',
+      department: departmentName,
+      responsible: responsibleName,
       dataCount: total,
       evaluated,
       notEvaluated,
@@ -130,9 +145,17 @@ export const getAllTitles = async (
 };
 
 export const getTitleById = async (id: string, userId: string, userPermission: string) => {
-  const title = await prisma.title.findUnique({
+  const title = (await prisma.title.findUnique({
     where: { id },
     include: {
+      mainOwner: {
+        select: {
+          id: true,
+          name: true,
+          userId: true,
+          department: { select: { name: true } }
+        }
+      },
       titleUsers: {
         include: {
           user: {
@@ -156,8 +179,8 @@ export const getTitleById = async (id: string, userId: string, userPermission: s
           titleName: true,
         },
       },
-    },
-  });
+    } as any,
+  })) as any;
 
   if (!title) {
     throw new AppError('Title not found', 404);
@@ -169,8 +192,8 @@ export const getTitleById = async (id: string, userId: string, userPermission: s
   }
 
   const total = title.patents.length;
-  const evaluated = title.patents.filter((p) => p.evaluationStatus !== '未評価').length;
-  const notEvaluated = title.patents.filter((p) => p.evaluationStatus === '未評価').length;
+  const evaluated = title.patents.filter((p: any) => p.evaluationStatus !== '未評価').length;
+  const notEvaluated = title.patents.filter((p: any) => p.evaluationStatus === '未評価').length;
   const progressRate = total > 0 ? (evaluated / total) * 100 : 0;
 
   return {
@@ -204,6 +227,76 @@ export const createTitle = async (data: CreateTitleData, createdBy: string) => {
       // Will be validated after title creation
     }
   }
+  // Resolve parentTitleId if provided (accept title id or titleNo)
+  let parentTitleIdToUse = data.parentTitleId;
+  if (parentTitleIdToUse) {
+    const parentById = await prisma.title.findUnique({ where: { id: parentTitleIdToUse } });
+    if (!parentById) {
+      const parentByNo = await prisma.title.findUnique({ where: { titleNo: parentTitleIdToUse } as any });
+      if (parentByNo) {
+        parentTitleIdToUse = parentByNo.id;
+      } else {
+        // If parent not found, clear it (don't block creation)
+        parentTitleIdToUse = undefined as any;
+      }
+    }
+  }
+
+  // Resolve users: accept either DB id or userId (username). Map to DB UUIDs.
+  // Validate: only 管理者 can be mainResponsible (主担当)
+  let titleUsersCreate: any = undefined;
+  let mainOwnerFromResolved: string | undefined = undefined;
+  
+  if (data.users && data.users.length > 0) {
+    const resolvedUsers: any[] = [];
+    for (const u of data.users) {
+      if (!u.userId) continue;
+      // Try find by id first
+      let userRecord = await prisma.user.findUnique({ where: { id: u.userId } });
+      if (!userRecord) {
+        // Try find by userId (username)
+        userRecord = await prisma.user.findUnique({ where: { userId: u.userId } as any });
+      }
+      if (!userRecord) {
+        throw new AppError(`User not found: ${u.userId}`, 400);
+      }
+
+      // Validate: only 管理者 can be mainResponsible
+      const permissionString = u.permission || '一般';
+      const isAdmin = permissionString === '管理者';
+      if (u.isMainResponsible && !isAdmin) {
+        throw new AppError(
+          `Only 管理者 can be main responsible (主担当). User ${userRecord.userId} has permission: ${permissionString}`,
+          400
+        );
+      }
+
+      // Map permission to bit flags
+      const permissionFlags =
+        permissionString === '管理者'
+          ? { isAdmin: true, isGeneral: false, isViewer: false }
+          : permissionString === '閲覧'
+          ? { isAdmin: false, isGeneral: false, isViewer: true }
+          : { isAdmin: false, isGeneral: true, isViewer: false };
+
+      resolvedUsers.push({
+        userId: userRecord.id,
+        isMainResponsible: u.isMainResponsible || false,
+        ...permissionFlags,
+        evalEmail: u.evalEmail || false,
+        confirmEmail: u.confirmEmail || false,
+        displayOrder: u.displayOrder || 0,
+      });
+
+      // Track main owner
+      if (u.isMainResponsible) {
+        mainOwnerFromResolved = userRecord.id;
+      }
+    }
+    if (resolvedUsers.length > 0) {
+      titleUsersCreate = { create: resolvedUsers };
+    }
+  }
 
   const title = await prisma.title.create({
     data: {
@@ -211,7 +304,7 @@ export const createTitle = async (data: CreateTitleData, createdBy: string) => {
       titleName: data.titleName,
       dataType: data.dataType || '特許',
       markColor: data.markColor,
-      parentTitleId: data.parentTitleId,
+      parentTitleId: parentTitleIdToUse,
       saveDate: data.saveDate,
       disallowEvaluation: data.disallowEvaluation || false,
       allowEvaluation: data.allowEvaluation !== false,
@@ -220,18 +313,8 @@ export const createTitle = async (data: CreateTitleData, createdBy: string) => {
       mainEvaluation: data.mainEvaluation !== false,
       singlePatentMultipleEvaluations: data.singlePatentMultipleEvaluations || false,
       createdBy,
-      titleUsers: data.users
-        ? {
-            create: data.users.map((u) => ({
-              userId: u.userId,
-              isMainResponsible: u.isMainResponsible || false,
-              permission: (u.permission as any) || '一般',
-              evalEmail: u.evalEmail || false,
-              confirmEmail: u.confirmEmail || false,
-              displayOrder: u.displayOrder || 0,
-            })),
-          }
-        : undefined,
+      // mainOwnerId will be set after titleUsers are created
+      titleUsers: titleUsersCreate,
     },
     include: {
       titleUsers: {
@@ -242,17 +325,14 @@ export const createTitle = async (data: CreateTitleData, createdBy: string) => {
     },
   });
 
-  // Validate only one main responsible
-  const mainResponsibles = title.titleUsers.filter((tu) => tu.isMainResponsible);
-  if (mainResponsibles.length > 1) {
-    // Keep only the first one as main
-    const firstMain = mainResponsibles[0];
-    for (let i = 1; i < mainResponsibles.length; i++) {
-      await prisma.titleUser.update({
-        where: { id: mainResponsibles[i].id },
-        data: { isMainResponsible: false },
-      });
-    }
+  // Set mainOwnerId based on titleUsers isMainResponsible
+  if (mainOwnerFromResolved) {
+    await prisma.title.update({
+      where: { id: title.id },
+      data: { 
+        mainOwnerId: mainOwnerFromResolved,
+      } as any, // Cast to any to bypass Prisma type checking until schema updates propagate
+    });
   }
 
   return title;
@@ -323,6 +403,13 @@ export const updateTitle = async (
         data: { isMainResponsible: false },
       });
     }
+
+    // After creating TitleUser records, set mainOwnerId on Title based on title_users
+    const mainTu = await prisma.titleUser.findFirst({ where: { titleId: id, isMainResponsible: true } });
+    const mainOwnerIdToSet = mainTu ? mainTu.userId : null;
+    if (mainOwnerIdToSet) {
+      await prisma.title.update({ where: { id }, data: { mainOwnerId: mainOwnerIdToSet } as any });
+    }
   }
 
   return title;
@@ -334,9 +421,61 @@ export const deleteTitle = async (id: string, userId: string, userPermission: st
     throw new AppError('Access denied', 403);
   }
 
-  await prisma.title.delete({
-    where: { id },
-  });
+  // Delete in order of dependencies (reverse of creation order)
+  // to avoid FK constraint violations (since we use onDelete: NoAction on some relations)
+  try {
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete activity logs referencing this title (has NoAction on titleId)
+      await tx.activityLog.deleteMany({
+        where: { titleId: id },
+      });
+
+      // 2. Delete evaluations (has NoAction on titleId)
+      await tx.evaluation.deleteMany({
+        where: { titleId: id },
+      });
+
+      // 3. Delete patent classifications (has NoAction on patentId)
+      // Get all patents for this title first
+      const patents = await tx.patent.findMany({
+        where: { titleId: id },
+        select: { id: true },
+      });
+      for (const patent of patents) {
+        await tx.patentClassification.deleteMany({
+          where: { patentId: patent.id },
+        });
+      }
+
+      // 4. Delete patents
+      await tx.patent.deleteMany({
+        where: { titleId: id },
+      });
+
+      // 5. Delete title-user relationships (auto-cascades but delete explicitly for clarity)
+      await tx.titleUser.deleteMany({
+        where: { titleId: id },
+      });
+
+      // 6. Delete attachments (auto-cascades but delete explicitly)
+      await tx.attachment.deleteMany({
+        where: { titleId: id },
+      });
+
+      // 7. Delete orphaned patent classifications (if any)
+      await tx.patentClassification.deleteMany({
+        where: { titleId: id },
+      });
+
+      // 8. Finally, delete the title
+      await tx.title.delete({
+        where: { id },
+      });
+    });
+  } catch (err: any) {
+    console.error('Error deleting title:', err);
+    throw new AppError(`Failed to delete title: ${err?.message || 'Unknown error'}`, 500);
+  }
 
   return { message: 'Title deleted successfully' };
 };
@@ -393,10 +532,12 @@ export const copyTitle = async (
       singlePatentMultipleEvaluations: originalTitle.singlePatentMultipleEvaluations,
       createdBy: userId,
       titleUsers: {
-        create: originalTitle.titleUsers.map((tu) => ({
+        create: originalTitle.titleUsers.map((tu: any) => ({
           userId: tu.userId,
           isMainResponsible: tu.isMainResponsible,
-          permission: tu.permission as any,
+          isAdmin: tu.isAdmin,
+          isGeneral: tu.isGeneral,
+          isViewer: tu.isViewer,
           evalEmail: tu.evalEmail,
           confirmEmail: tu.confirmEmail,
           displayOrder: tu.displayOrder,

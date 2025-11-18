@@ -64,8 +64,6 @@ CREATE TABLE [dbo].[title_users] (
     [user_id] NVARCHAR(1000) NOT NULL,
     [is_main_responsible] BIT NOT NULL CONSTRAINT [title_users_is_main_responsible_df] DEFAULT 0,
     [permission] NVARCHAR(1000) NOT NULL CONSTRAINT [title_users_permission_df] DEFAULT '一般',
-    [eval_email] BIT NOT NULL CONSTRAINT [title_users_eval_email_df] DEFAULT 0,
-    [confirm_email] BIT NOT NULL CONSTRAINT [title_users_confirm_email_df] DEFAULT 0,
     [display_order] INT NOT NULL CONSTRAINT [title_users_display_order_df] DEFAULT 0,
     [created_at] DATETIME2 NOT NULL CONSTRAINT [title_users_created_at_df] DEFAULT CURRENT_TIMESTAMP,
     [updated_at] DATETIME2 NOT NULL,

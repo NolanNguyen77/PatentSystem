@@ -38,6 +38,20 @@ interface TitleSeed {
   }>;
 }
 
+// Helper to map permission string to bit flags
+const getPermissionFlags = (permission: Permission) => {
+  switch (permission) {
+    case '管理者':
+      return { isAdmin: true, isGeneral: false, isViewer: false };
+    case '一般':
+      return { isAdmin: false, isGeneral: true, isViewer: false };
+    case '閲覧':
+      return { isAdmin: false, isGeneral: false, isViewer: true };
+    default:
+      return { isAdmin: false, isGeneral: true, isViewer: false };
+  }
+};
+
 interface PatentSeedInput {
   titleNo: string;
   patentNo?: string;
@@ -63,29 +77,27 @@ const departmentSeeds: DepartmentSeed[] = [
 ];
 
 const userSeeds: UserSeed[] = [
-  { userId: 'asakawa', name: 'あさかわ', email: 'asakawa@example.com', password: 'Password123!', departmentName: '法人営業', permission: '管理者' },
-  { userId: 'hirakawa', name: 'ひらかわ', email: 'hirakawa@example.com', password: 'Password123!', departmentName: '調査力部所', permission: '管理者' },
-  { userId: 'Nguyen', name: 'グエン・タイ・シ・タン', email: 'nguyen@example.com', password: '1', departmentName: '調査力部所', permission: '管理者' },
-  { userId: 'nguyen_copy', name: 'グエン・ダイブ・タン', email: 'nguyen.copy@example.com', password: 'Password123!', departmentName: '調査力部所', permission: '管理者' },
-  { userId: 'm_fmn01', name: '部門責任者　０１', email: 'm_fmn01@example.com', password: 'Password123!', departmentName: 'その他開発', permission: '管理者' },
-  { userId: 'm_fmn02', name: '部門責任者　０２', email: 'm_fmn02@example.com', password: 'Password123!', departmentName: 'その他開発', permission: '管理者' },
-  { userId: 'm_lpm01', name: '一般　０１', email: 'm_lpm01@example.com', password: 'Password123!', departmentName: '調査力開発', permission: '一般' },
-  { userId: 'm_lpm02', name: '一般　０２', email: 'm_lpm02@example.com', password: 'Password123!', departmentName: '調査力開発', permission: '一般' },
-  { userId: 'm_lpm03', name: '一般　０３', email: 'm_lpm03@example.com', password: 'Password123!', departmentName: '調査力開発', permission: '一般' },
-  { userId: 'm_tym01', name: '一般（調査）０１', email: 'm_tym01@example.com', password: 'Password123!', departmentName: '調査力開発', permission: '一般' },
-  { userId: 'm_tym02', name: '一般（法人）０２', email: 'm_tym02@example.com', password: 'Password123!', departmentName: '法人営業', permission: '一般' },
-  { userId: 'm_tym03', name: '一般（法人）０３', email: 'm_tym03@example.com', password: 'Password123!', departmentName: '法人営業', permission: '一般' },
-  { userId: 'maruo', name: 'まるお', email: 'maruo@example.com', password: 'Password123!', departmentName: '調査力開発', permission: '管理者' },
-  { userId: 'shimizu', name: 'しみず', email: 'shimizu@example.com', password: 'Password123!', departmentName: '個人営業', permission: '管理者' },
-  { userId: 'shimizu1', name: 'しみず１', email: 'shimizu1@example.com', password: 'Password123!', departmentName: 'その他開発', permission: '管理者' },
-  { userId: 'shimizu2', name: 'しみず２', email: 'shimizu2@example.com', password: 'Password123!', departmentName: '構佐', permission: '管理者' },
-  { userId: 'shimizu3', name: 'しみず３', email: 'shimizu3@example.com', password: 'Password123!', departmentName: 'その他開発', permission: '管理者' },
-  { userId: 'tsuji', name: 'つじま', email: 'tsuji@example.com', password: 'Password123!', departmentName: '調査力開発', permission: '管理者' },
-  { userId: 'yamamoto', name: 'やまもと', email: 'yamamoto@example.com', password: 'Password123!', departmentName: '調査力開発', permission: '管理者' },
-  { userId: 'yamamoto1', name: 'やまもと１', email: 'yamamoto1@example.com', password: 'Password123!', departmentName: '調査力開発', permission: '管理者' },
-  { userId: 'yamamoto2', name: 'やまもと２', email: 'yamamoto2@example.com', password: 'Password123!', departmentName: '調査力開発', permission: '管理者' },
-  { userId: 'tan286', name: 'Tan Nguyen', email: 'tan286@example.com', password: '026339229', departmentName: '調査力部所', permission: '管理者' },
-  { userId: 'admin', name: 'Administrator', email: 'admin@example.com', password: '123456', departmentName: '調査力部所', permission: '管理者' },
+  { userId: 'asakawa', name: 'あさかわ', email: 'asakawa@ipfine.jp', password: '1', departmentName: '法人営業', permission: '管理者' },
+  { userId: 'hirakawa', name: 'ひらかわ', email: 'hirakawa@ipfine.jp', password: '1', departmentName: '調査力部所', permission: '管理者' },
+  { userId: 'Nguyen', name: 'グエン・タイ・タン', email: 'nguyen@ipfine.jp', password: '1', departmentName: '調査力部所', permission: '管理者' },
+  { userId: 'm_fmn01', name: '部門責任者 01', email: 'm_fmn01@ipfine.jp', password: '1', departmentName: 'その他開発', permission: '管理者' },
+  { userId: 'm_fmn02', name: '部門責任者 02', email: 'm_fmn02@ipfine.jp', password: '1', departmentName: 'その他開発', permission: '管理者' },
+  { userId: 'm_lpm01', name: '一般 01', email: 'm_lpm01@ipfine.jp', password: '1', departmentName: '調査力開発', permission: '一般' },
+  { userId: 'm_lpm02', name: '一般 02', email: 'm_lpm02@ipfine.jp', password: '1', departmentName: '調査力開発', permission: '一般' },
+  { userId: 'm_lpm03', name: '一般 03', email: 'm_lpm03@ipfine.jp', password: '1', departmentName: '調査力開発', permission: '一般' },
+  { userId: 'm_tym01', name: '一般（調査) 01', email: 'm_tym01@ipfine.jp', password: '1', departmentName: '調査力開発', permission: '一般' },
+  { userId: 'm_tym02', name: '一般（法人) 02', email: 'm_tym02@ipfine.jp', password: '1', departmentName: '法人営業', permission: '一般' },
+  { userId: 'm_tym03', name: '一般（法人) 03', email: 'm_tym03@ipfine.jp', password: '1', departmentName: '法人営業', permission: '一般' },
+  { userId: 'maruo', name: 'まるお', email: 'maruo@ipfine.jp', password: '1', departmentName: '調査力開発', permission: '管理者' },
+  { userId: 'shimizu', name: 'しみず', email: 'shimizu@ipfine.jp', password: '1', departmentName: '個人営業', permission: '管理者' },
+  { userId: 'shimizu1', name: 'しみず１', email: 'shimizu1@ipfine.jp', password: '1', departmentName: 'その他開発', permission: '管理者' },
+  { userId: 'shimizu2', name: 'しみず２', email: 'shimizu2@ipfine.jp', password: '1', departmentName: '構佐', permission: '管理者' },
+  { userId: 'shimizu3', name: 'しみず３', email: 'shimizu3@ipfine.jp', password: '1', departmentName: 'その他開発', permission: '管理者' },
+  { userId: 'tsuji', name: 'つじま', email: 'tsuji@ipfine.jp', password: '1', departmentName: '調査力開発', permission: '管理者' },
+  { userId: 'yamamoto', name: 'やまもと', email: 'yamamoto@ipfine.jp', password: '1', departmentName: '調査力開発', permission: '管理者' },
+  { userId: 'yamamoto1', name: 'やまもと１', email: 'yamamoto1@ipfine.jp', password: '1', departmentName: '調査力開発', permission: '管理者' },
+  { userId: 'yamamoto2', name: 'やまもと２', email: 'yamamoto2@ipfine.jp', password: '1', departmentName: '調査力開発', permission: '管理者' },
+  { userId: 'tan286', name: 'Tan Nguyen', email: 'Nguyen_TT@ipfine.jp', password: '026339229', departmentName: '調査力部所', permission: '管理者' },
 ];
 
 const titleSeeds: TitleSeed[] = [
@@ -112,13 +124,12 @@ const titleSeeds: TitleSeed[] = [
   },
   {
     titleNo: '000035',
-    titleName: 'コピー ～ グエン・ダイブ・タン',
-    dataType: '論文',
-    markColor: '#3b82f6',
-    saveDate: '2025/11',
-    createdByUserId: 'nguyen_copy',
+    titleName: '自動生成タイトル000035',
+    dataType: '特許',
+    saveDate: '2025/10',
+    createdByUserId: 'Nguyen',
     responsibles: [
-      { userId: 'nguyen_copy', permission: '管理者', isMain: true, evalEmail: true, confirmEmail: true },
+      { userId: 'Nguyen', permission: '管理者', isMain: true, evalEmail: true, confirmEmail: true },
     ],
   },
 ];
@@ -349,10 +360,11 @@ async function main() {
             if (!user) {
               throw new Error(`User ${responsible.userId} not found for title ${title.titleNo}`);
             }
+            const permissionFlags = getPermissionFlags(responsible.permission);
             return {
               userId: user.id,
               isMainResponsible: responsible.isMain ?? index === 0,
-              permission: responsible.permission,
+              ...permissionFlags,
               evalEmail: responsible.evalEmail ?? false,
               confirmEmail: responsible.confirmEmail ?? false,
               displayOrder: index,

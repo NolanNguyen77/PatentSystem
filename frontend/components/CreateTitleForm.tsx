@@ -111,14 +111,14 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
     3: [
       { id: 4, userId: 'yamamoto1', name: 'やまもと１', dept: '調査力開発', section: '', permission: '管理者', isMain: false, displayOrder: 0, userDisplayOrder: 0, evalEmail: false, confirmEmail: true },
       { id: 5, userId: 'maruo', name: 'まるお', dept: '調査力開発', section: '', permission: '管理者', isMain: false, displayOrder: 0, userDisplayOrder: 0, evalEmail: false, confirmEmail: true },
-      { id: 6, userId: 'm_tym01', name: '一般　０１', dept: '調査力開発', section: '', permission: '一般', isMain: false, displayOrder: 0, userDisplayOrder: 0, evalEmail: false, confirmEmail: true },
+      { id: 6, userId: 'm_tym01', name: '一般 01', dept: '調査力開発', section: '', permission: '一般', isMain: false, displayOrder: 0, userDisplayOrder: 0, evalEmail: false, confirmEmail: true },
     ],
     4: [
       { id: 7, userId: 'yamamoto2', name: 'やまもと２', dept: '構佐', section: '', permission: '管理者', isMain: false, displayOrder: 0, userDisplayOrder: 0, evalEmail: false, confirmEmail: true },
     ],
     5: [
-      { id: 8, userId: 'm_tym02', name: '一般　０２', dept: '法人営業', section: '', permission: '一般', isMain: false, displayOrder: 0, userDisplayOrder: 0, evalEmail: false, confirmEmail: true },
-      { id: 9, userId: 'm_tym03', name: '一般　０３', dept: '法人営業', section: '', permission: '一般', isMain: false, displayOrder: 0, userDisplayOrder: 0, evalEmail: false, confirmEmail: true },
+      { id: 8, userId: 'm_tym02', name: '一般 02', dept: '法人営業', section: '', permission: '一般', isMain: false, displayOrder: 0, userDisplayOrder: 0, evalEmail: false, confirmEmail: true },
+      { id: 9, userId: 'm_tym03', name: '一般 03', dept: '法人営業', section: '', permission: '一般', isMain: false, displayOrder: 0, userDisplayOrder: 0, evalEmail: false, confirmEmail: true },
     ],
   };
 
@@ -147,7 +147,13 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
           if (res.ok) {
             const data = await res.json();
             const deptUsers = data.data?.users || [];
-            collectedUsers.push(...deptUsers);
+            // Normalize department field so the table's 部署名 column can display a name string.
+            const normalized = deptUsers.map((u: any) => ({
+              ...u,
+              // some endpoints return `department` object, others return `dept` string
+              dept: u.dept || (u.department && (u.department.name || u.department.title || u.department.no)) || u.departmentName || ''
+            }));
+            collectedUsers.push(...normalized);
           }
         } catch (err) {
           console.error(`Error fetching users for department ${deptId}:`, err);

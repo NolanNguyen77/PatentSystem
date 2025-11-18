@@ -546,7 +546,32 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                             保存データの検索
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600">
+                          <DropdownMenuItem 
+                            className="cursor-pointer text-red-600 focus:text-red-600"
+                            onClick={async () => {
+                              try {
+                                const confirmed = confirm('このタイトルを本当に削除しますか？ この操作は取り消せません。');
+                                if (!confirmed) return;
+
+                                // Prefer database id if available, otherwise fall back to title no
+                                const idOrNo = item.id || item.no;
+                                console.log('Deleting title:', idOrNo);
+
+                                const res = await titleAPI.delete(String(idOrNo));
+                                if (res.error) {
+                                  console.error('Failed to delete title:', res.error);
+                                  alert('タイトルの削除に失敗しました: ' + res.error);
+                                } else {
+                                  // Success — refresh the list
+                                  await fetchTitles();
+                                  alert('タイトルを削除しました');
+                                }
+                              } catch (err) {
+                                console.error('Error deleting title:', err);
+                                alert('タイトルの削除中にエラーが発生しました');
+                              }
+                            }}
+                          >
                             <Trash2 className="w-4 h-4 mr-2" />
                             このタイトルを削除
                           </DropdownMenuItem>
