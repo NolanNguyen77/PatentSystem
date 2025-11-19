@@ -31,6 +31,8 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
   const [showWarning, setShowWarning] = useState(false);
   const [showDepartmentDialog, setShowDepartmentDialog] = useState(false);
   const [showUserSearchDialog, setShowUserSearchDialog] = useState(false);
+  const [showPermissionWarning, setShowPermissionWarning] = useState(false);
+  const [permissionWarningMessage, setPermissionWarningMessage] = useState('');
   const [selectedDepartments, setSelectedDepartments] = useState<number[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
@@ -69,24 +71,49 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
         }
         
         // Fetch departments
-        const deptsRes = await fetch('http://localhost:4001/api/departments', { headers });
+        const deptsRes = await fetch('http://localhost:4001/api/users/departments', { headers });
         if (deptsRes.ok) {
           const deptsData = await deptsRes.json();
           if (deptsData.data && deptsData.data.departments) {
             setDepartments(deptsData.data.departments);
           }
+        } else {
+          console.error('❌ Failed to fetch departments:', deptsRes.status, deptsRes.statusText);
         }
 
         // Fetch parent titles
         try {
           const titlesResult = await titleAPI.getAll();
-          if (titlesResult.data) {
-            const titles = titlesResult.data.titles || (Array.isArray(titlesResult.data) ? titlesResult.data : []);
-            setParentTitles(titles);
-            console.log('✅ Loaded parent titles:', titles.length);
+          console.log('📦 titleAPI.getAll() result:', titlesResult);
+          
+          let titles: any[] = [];
+          
+          // Handle nested response: { data: { data: { titles: [...] } } }
+          if (titlesResult.data?.data?.titles) {
+            titles = titlesResult.data.data.titles;
           }
+          // Handle direct response: { data: { titles: [...] } }
+          else if (titlesResult.data?.titles) {
+            titles = titlesResult.data.titles;
+          }
+          // Handle array response: { data: [...] }
+          else if (Array.isArray(titlesResult.data)) {
+            titles = titlesResult.data;
+          }
+          // Handle error case
+          else if (titlesResult.error) {
+            console.error('❌ API Error fetching titles:', titlesResult.error);
+            titles = [];
+          }
+          
+          // Filter out current title being created (if any) and ensure we have valid titles
+          const validTitles = titles.filter(t => t && (t.id || t.no) && (t.titleName || t.title || t.name));
+          
+          setParentTitles(validTitles);
+          console.log('✅ Loaded parent titles:', validTitles.length, validTitles);
         } catch (err) {
           console.error('❌ Error fetching parent titles:', err);
+          setParentTitles([]);
         }
         
         console.log('✅ Loaded users and departments');
@@ -147,13 +174,30 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
           if (res.ok) {
             const data = await res.json();
             const deptUsers = data.data?.users || [];
-            // Normalize department field so the table's 部署名 column can display a name string.
-            const normalized = deptUsers.map((u: any) => ({
-              ...u,
-              // some endpoints return `department` object, others return `dept` string
-              dept: u.dept || (u.department && (u.department.name || u.department.title || u.department.no)) || u.departmentName || ''
-            }));
+            // Normalize and map permission from API response
+            const normalized = deptUsers.map((u: any) => {
+              // Map permission from user object (can be 'permission' or derived from bit flags)
+              let permission = '一般'; // default
+              if (u.permission) {
+                permission = u.permission;
+              } else if (u.isAdmin) {
+                permission = '管理者';
+              } else if (u.isViewer) {
+                permission = '閲覧';
+              } else if (u.isGeneral) {
+                permission = '一般';
+              }
+              
+              return {
+                ...u,
+                permission, // Ensure permission is set
+                // some endpoints return `department` object, others return `dept` string
+                dept: u.dept || (u.department && (u.department.name || u.department.title || u.department.no)) || u.departmentName || '',
+                isMain: u.isMainResponsible || false, // Map isMainResponsible to isMain for UI
+              };
+            });
             collectedUsers.push(...normalized);
+            console.log('✅ Normalized users from department:', normalized);
           }
         } catch (err) {
           console.error(`Error fetching users for department ${deptId}:`, err);
@@ -162,7 +206,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
       
       // Update the main user list with selected department users
       setSelectedUsers(collectedUsers);
-      console.log('✅ Added users from selected departments:', collectedUsers.length);
+      console.log('✅ Added users from selected departments:', collectedUsers.length, collectedUsers);
     } catch (err) {
       console.error('❌ Error executing department settings:', err);
     }
@@ -174,10 +218,52 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
     setSelectedDepartments([]);
   };
 
+  const resolvePermission = (u: any) => {
+    if (!u) return '一般';
+    if (u.permission) return u.permission;
+    if (u.permission_flag) return u.permission_flag;
+    if (u.isAdmin) return '管理者';
+    if (u.isViewer) return '閲覧';
+    if (u.isGeneral) return '一般';
+    // try lookup from allUsers by userId
+    const found = allUsers.find((au: any) => au.userId === u.userId || au.id === u.id);
+    if (found && (found.permission || found.permission_flag)) return found.permission || found.permission_flag;
+    return '一般';
+  };
+
   const handleToggleMain = (userId: number) => {
-    setSelectedUsers(selectedUsers.map(user => 
-      user.id === userId ? { ...user, isMain: !user.isMain } : user
+    const user = selectedUsers.find(u => u.id === userId);
+    const resolvedPerm = resolvePermission(user);
+
+    // Validate: only 管理者 can be main responsible
+    if (user && !user.isMain && resolvedPerm !== '管理者') {
+      setPermissionWarningMessage(`${user.name || 'このユーザー'}は権限が「${resolvedPerm}」のため、主担当に設定できません。\n主担当は「管理者」権限のみ設定可能です。`);
+      setShowPermissionWarning(true);
+      return;
+    }
+
+    setSelectedUsers(selectedUsers.map(u => 
+      u.id === userId ? { ...u, isMain: !u.isMain } : u
     ));
+  };
+
+  const handlePermissionChange = (userId: number, newPermission: string) => {
+    setSelectedUsers((prev) =>
+      prev.map((user) => {
+        if (user.id !== userId) return user;
+
+        const updatedUser = { ...user, permission: newPermission };
+
+        // If user is currently main but permission downgraded, remove main role
+        if (updatedUser.isMain && newPermission !== '管理者') {
+          setPermissionWarningMessage(`${updatedUser.name || 'このユーザー'}の権限を「${newPermission}」に変更したため、主担当設定を解除しました。\\n主担当は「管理者」権限のみ設定可能です。`);
+          setShowPermissionWarning(true);
+          updatedUser.isMain = false;
+        }
+
+        return updatedUser;
+      })
+    );
   };
 
   const handleAddEmptyRow = () => {
@@ -348,14 +434,20 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
                 <Label htmlFor="parentTitle">上位階層タイトル</Label>
                 <Select value={parentTitle} onValueChange={setParentTitle}>
                   <SelectTrigger id="parentTitle" className="border-2">
-                    <SelectValue placeholder="一選択してください" />
+                    <SelectValue placeholder="選択してください" />
                   </SelectTrigger>
                   <SelectContent>
-                    {parentTitles.map((title: any) => (
-                      <SelectItem key={title.id || title.no} value={title.no || title.id}>
-                        {title.no}：{title.titleName || title.name || title.title}
-                      </SelectItem>
-                    ))}
+                    {parentTitles && parentTitles.length > 0 ? (
+                      parentTitles.map((title: any) => (
+                        <SelectItem key={title.id || title.no} value={title.id || title.no}>
+                          {title.no}：{title.titleName || title.title || title.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="p-2 text-sm text-gray-500">
+                        タイトルがありません
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -476,14 +568,17 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Select defaultValue={user.permission}>
+                      <Select
+                        value={resolvePermission(user)}
+                        onValueChange={(value) => handlePermissionChange(user.id, value)}
+                      >
                         <SelectTrigger className="h-8 border-gray-300">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="管理者">管理者</SelectItem>
                           <SelectItem value="一般">一般</SelectItem>
-                          <SelectItem value="関覧">関覧</SelectItem>
+                          <SelectItem value="閲覧">閲覧</SelectItem>
                         </SelectContent>
                       </Select>
                     </TableCell>
@@ -657,6 +752,33 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
                 </TableBody>
               </Table>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Permission Warning Dialog */}
+      <Dialog open={showPermissionWarning} onOpenChange={setShowPermissionWarning}>
+        <DialogContent className="bg-gray-900 text-white border-gray-700 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white">localhost:3001 の内容</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-0.5" />
+              <div className="space-y-2 text-sm">
+                {permissionWarningMessage.split('\n').map((line, index) => (
+                  <p key={index} className="text-gray-100">{line}</p>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button 
+              onClick={() => setShowPermissionWarning(false)}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              OK
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

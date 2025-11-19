@@ -11,10 +11,13 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get('/', getAllUsersController);
-router.get('/:id', getUserByIdController);
+// static routes first
 router.get('/departments', getDepartmentsController);
 router.get('/departments/:id/users', getUsersByDepartmentController);
+
+// dynamic routes last
+router.get('/', getAllUsersController);
+router.get('/:id', getUserByIdController);
 
 export default router;
 

@@ -204,15 +204,31 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
         editPermission: 'creator', // Default
         mainEvaluation: true, // Default
         singlePatentMultipleEvaluations: false, // Default
-        users: titleData.selectedUsers?.map((u: any) => ({
-          userId: u.userId,
-          isMainResponsible: u.isMain || false,
-          permission: u.permission || '一般',
-          evalEmail: u.evalEmail || false,
-          confirmEmail: u.confirmEmail || false,
-          displayOrder: u.displayOrder || 0,
-        })) || [],
+        users: titleData.selectedUsers?.map((u: any) => {
+          console.log('User data:', u);
+          
+          // Determine permission
+          const permission = u.permission || u.permission_flag || '一般';
+          
+          // Validate: only 管理者 can be main responsible
+          let isMainResponsible = u.isMain || false;
+          if (isMainResponsible && permission !== '管理者') {
+            console.warn(`⚠️ User ${u.userId} has permission "${permission}" but isMainResponsible=true. Forcing to false.`);
+            isMainResponsible = false;
+          }
+          
+          return {
+            userId: u.userId,
+            isMainResponsible,
+            permission,
+            evalEmail: u.evalEmail || false,
+            confirmEmail: u.confirmEmail || false,
+            displayOrder: u.displayOrder || 0,
+          };
+        }) || [],
       };
+      
+      console.log('📤 Sending API data:', JSON.stringify(apiData, null, 2));
 
       // Call API to create title
       const result = await titleAPI.create(apiData);

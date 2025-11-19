@@ -70,8 +70,23 @@ export const getUsersByDepartment = async (departmentId: string) => {
       departmentId,
       isActive: true,
     },
-    include: {
-      department: true,
+    select: {
+      id: true,
+      userId: true,
+      name: true,
+      email: true,
+      permission: true, // Explicitly include permission
+      departmentId: true,
+      section: true,
+      displayOrder: true,
+      department: {
+        select: {
+          id: true,
+          no: true,
+          name: true,
+          abbreviation: true,
+        }
+      }
     },
     orderBy: { displayOrder: 'asc' },
   });
