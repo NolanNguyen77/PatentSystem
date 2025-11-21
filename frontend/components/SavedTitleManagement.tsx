@@ -34,6 +34,7 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
   const [selectedDepartments, setSelectedDepartments] = useState<number[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Update state when titleData changes
   useEffect(() => {
@@ -41,7 +42,20 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
       setTitleName(titleData.title || '');
       setDataType(titleData.dataType || '特許');
       setSaveDate(titleData.date || '2025/11');
-      
+
+      // Set parent title if exists
+      if (titleData.parentTitleId) {
+        setParentTitle(String(titleData.parentTitleId));
+        console.log('✅ Set parent title ID:', titleData.parentTitleId);
+      } else if (titleData.parentTitle) {
+        // parentTitle might be an object { id, no, name }
+        const parentId = typeof titleData.parentTitle === 'object'
+          ? String(titleData.parentTitle.id || titleData.parentTitle.no)
+          : String(titleData.parentTitle);
+        setParentTitle(parentId);
+        console.log('✅ Set parent title from object:', parentId, titleData.parentTitle);
+      }
+
       // Convert markColor to markType
       const colorToMarkMap: { [key: string]: string } = {
         '': 'マークなし',
@@ -57,16 +71,16 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
         '#9ca3af': 'グレー',
       };
       setMarkType(colorToMarkMap[titleData.markColor || ''] || 'マークなし');
-      
+
       // Load users for this title (mock data for now) - mark as existing users (not deletable)
       setSelectedUsers([
-        { 
-          id: 1, 
-          name: titleData.responsible || 'グエン・タン・タン', 
-          userId: 'Nguyen', 
-          dept: titleData.department || '調査力開発', 
-          permission: '管理者', 
-          isMain: true, 
+        {
+          id: 1,
+          name: titleData.responsible || 'グエン・タン・タン',
+          userId: 'Nguyen',
+          dept: titleData.department || '調査力開発',
+          permission: '管理者',
+          isMain: true,
           evalEmail: true,
           isExisting: true // Mark as existing user from title
         }
@@ -94,18 +108,44 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
         const usersRes = await fetch('http://localhost:4001/api/users', { headers });
         if (usersRes.ok) {
           const usersData = await usersRes.json();
+          console.log('📦 Raw users API response:', usersData);
+          
           if (usersData.data && usersData.data.users) {
-            setAllUsers(usersData.data.users);
+            console.log('👤 First user sample:', usersData.data.users[0]);
+            
+            const mappedUsers = usersData.data.users.map((u: any) => {
+              const deptName = typeof u.department === 'string' 
+                ? u.department 
+                : (u.department?.name || u.departmentName || '');
+              console.log(`Mapping user ${u.userId}: dept = "${deptName}"`, u);
+              return {
+                ...u,
+                dept: deptName
+              };
+            });
+            
+            console.log('✅ Mapped users:', mappedUsers);
+            setAllUsers(mappedUsers);
+
+            // Check if current user is admin
+            const currentUsername = localStorage.getItem('username');
+            const currentUser = usersData.data.users.find((u: any) => u.userId === currentUsername);
+            if (currentUser && (currentUser.permission === '管理者' || currentUser.role === '管理者' || currentUser.isAdmin)) {
+              setIsAdmin(true);
+              console.log('✅ Current user is admin');
+            }
           }
         }
-        
+
         // Fetch departments
-        const deptsRes = await fetch('http://localhost:4001/api/departments', { headers });
+        const deptsRes = await fetch('http://localhost:4001/api/users/departments', { headers });
         if (deptsRes.ok) {
           const deptsData = await deptsRes.json();
           if (deptsData.data && deptsData.data.departments) {
             setDepartments(deptsData.data.departments);
           }
+        } else {
+          console.error('❌ Failed to fetch departments:', deptsRes.status, deptsRes.statusText);
         }
 
         // Fetch parent titles
@@ -119,7 +159,7 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
         } catch (err) {
           console.error('❌ Error fetching parent titles:', err);
         }
-        
+
         console.log('✅ Loaded users and departments');
       } catch (err) {
         console.error('❌ Error fetching data:', err);
@@ -147,9 +187,9 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       };
-      
+
       const collectedUsers: any[] = [];
-      
+
       for (const deptId of selectedDepartments) {
         try {
           const res = await fetch(`http://localhost:4001/api/departments/${deptId}/users`, { headers });
@@ -162,23 +202,23 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
           console.error(`Error fetching users for department ${deptId}:`, err);
         }
       }
-      
+
       // Update the main user list with selected department users
       setSelectedUsers(collectedUsers);
       console.log('✅ Added users from selected departments:', collectedUsers.length);
     } catch (err) {
       console.error('❌ Error executing department settings:', err);
     }
-    
+
     // Close the dialog
     setShowDepartmentDialog(false);
-    
+
     // Reset selections
     setSelectedDepartments([]);
   };
 
   const handleToggleMain = (userId: number) => {
-    setSelectedUsers(selectedUsers.map(user => 
+    setSelectedUsers(selectedUsers.map(user =>
       user.id === userId ? { ...user, isMain: !user.isMain } : user
     ));
   };
@@ -213,7 +253,7 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
   const handleSelectUserFromDialog = (selectedUser: any) => {
     if (editingUserId) {
       // Update the row with selected user info
-      setSelectedUsers(selectedUsers.map(user => 
+      setSelectedUsers(selectedUsers.map(user =>
         user.id === editingUserId ? {
           ...user,
           userId: selectedUser.userId,
@@ -223,7 +263,7 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
           isEmpty: false
         } : user
       ));
-      
+
       // Close dialog and reset
       setShowUserSearchDialog(false);
       setEditingUserId(null);
@@ -235,11 +275,11 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
       setShowWarning(true);
       return;
     }
-    
+
     // Find the main responsible user
     const mainUser = selectedUsers.find(user => user.isMain);
     const responsibleName = mainUser ? mainUser.name : titleData?.responsible || '';
-    
+
     // Handle form submission
     const updatedTitleData = {
       ...titleData,
@@ -264,8 +304,8 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
       {/* Header with title */}
       <div className="flex items-center gap-4 mb-4">
         {onBack && (
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={onBack}
             className="border-2"
           >
@@ -295,7 +335,7 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
           <span className="text-lg">保存されたタイトルの基本情報を編集します。</span>
         </div>
         <div className="flex gap-2">
-          <Button 
+          <Button
             onClick={handleSubmit}
             className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white"
           >
@@ -333,9 +373,9 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
               </div>
               <div className="flex-1">
                 <Label htmlFor="markType">マーク</Label>
-                <ColorSelect 
+                <ColorSelect
                   id="markType"
-                  value={markType} 
+                  value={markType}
                   onValueChange={setMarkType}
                   className="border-2"
                   disabled={!!titleData}
@@ -347,7 +387,7 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
             <div className="flex gap-4 items-end">
               <div className="flex-1">
                 <Label htmlFor="titleName">タイトル名</Label>
-                <Input 
+                <Input
                   id="titleName"
                   value={titleName}
                   onChange={(e) => setTitleName(e.target.value)}
@@ -358,25 +398,61 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
               </div>
               <div className="flex-1">
                 <Label htmlFor="parentTitle">上位階層タイトル</Label>
-                <Select value={parentTitle} onValueChange={setParentTitle} disabled={!!titleData}>
-                  <SelectTrigger id="parentTitle" className="border-2">
-                    <SelectValue placeholder="一選択してください" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {parentTitles.map((title: any) => (
-                      <SelectItem key={title.id || title.no} value={title.no || title.id}>
-                        {title.no}：{title.titleName || title.name || title.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {titleData ? (
+                  <Input
+                    value={(() => {
+                      // Case 1: We have the full object from props
+                      if (titleData.parentTitle && typeof titleData.parentTitle === 'object') {
+                        const no = titleData.parentTitle.no || titleData.parentTitle.titleNo || '';
+                        const name = titleData.parentTitle.name || titleData.parentTitle.titleName || '';
+                        return `${no}：${name}`;
+                      }
+
+                      // Case 2: We only have ID, try to find in loaded parentTitles
+                      if (parentTitle && parentTitles.length > 0) {
+                        const found = parentTitles.find((t: any) => String(t.id) === String(parentTitle) || String(t.no) === String(parentTitle));
+                        if (found) {
+                          return `${found.no}：${found.titleName || found.name || found.title}`;
+                        }
+                      }
+
+                      // Case 3: Only ID available or nothing
+                      return parentTitle ? String(parentTitle) : 'なし';
+                    })()}
+                    disabled
+                    className="border-2 bg-gray-100 text-gray-500"
+                  />
+                ) : (
+                  <Select
+                    value={String(parentTitle)}
+                    onValueChange={(value) => {
+                      console.log('📝 Parent title changed to:', value);
+                      setParentTitle(value);
+                    }}
+                  >
+                    <SelectTrigger id="parentTitle" className="border-2">
+                      <SelectValue placeholder="一選択してください" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {parentTitles.map((title: any) => {
+                        const itemValue = String(title.id || title.no);
+                        console.log('📋 Parent title option:', { id: title.id, no: title.no, value: itemValue, name: title.titleName || title.name || title.title });
+                        return (
+                          <SelectItem key={itemValue} value={itemValue}>
+                            {title.no}：{title.titleName || title.name || title.title}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
             {/* Row 3: Save Date */}
             <div className="flex gap-4 items-end">
               <div className="flex-1">
                 <Label htmlFor="saveDate">保存年月</Label>
-                <Input 
+                <Input
                   id="saveDate"
                   value={saveDate}
                   onChange={(e) => setSaveDate(e.target.value)}
@@ -389,12 +465,12 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
                 {/* Empty space for alignment */}
               </div>
             </div>
-            
+
             {/* Evaluation display permission */}
             <div className="space-y-3 pt-2 border-t border-gray-200">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Checkbox 
+                  <Checkbox
                     id="disallow-eval"
                     checked={disallowEvaluation}
                     onCheckedChange={(checked: boolean | 'indeterminate') => {
@@ -407,7 +483,7 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
                   </Label>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Checkbox 
+                  <Checkbox
                     id="allow-eval"
                     checked={allowEvaluation}
                     onCheckedChange={(checked: boolean | 'indeterminate') => {
@@ -439,12 +515,12 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
           <div className="mb-4 text-sm text-center text-gray-500 border-2 border-gray-200 rounded p-2">
             書籍が指定されていません
           </div>
-          
+
           {/* Department Settings Button */}
           <div className="mb-4">
-            <Button 
-              size="sm" 
-              variant="outline" 
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => setShowDepartmentDialog(true)}
               className="border-2"
             >
@@ -462,7 +538,6 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
                   <TableHead>権限</TableHead>
                   <TableHead>部署名</TableHead>
                   <TableHead>主担当</TableHead>
-                  <TableHead>評価特権</TableHead>
                   <TableHead className="text-center">削除</TableHead>
                 </TableRow>
               </TableHeader>
@@ -478,9 +553,9 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <span>{user.userId}</span>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           className="h-5 w-5 p-0"
                           onClick={() => handleOpenUserSearch(user.id)}
                         >
@@ -514,15 +589,12 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Checkbox defaultChecked={user.evalEmail} />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
+                      <Button
+                        size="sm"
+                        variant="ghost"
                         className="text-orange-500 hover:text-orange-700"
                         onClick={() => handleDeleteUser(user.id)}
-                        disabled={user.isExisting} // Disable delete for existing users
+                        disabled={user.isExisting && !isAdmin} // Disable delete for existing users unless admin
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -553,27 +625,27 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
             <DialogDescription className="sr-only">
               部署を選択してユーザーを設定します
             </DialogDescription>
-            <Button 
-              variant="link" 
+            <Button
+              variant="link"
               className="text-blue-500 hover:text-blue-700"
               onClick={() => setShowDepartmentDialog(false)}
             >
               閉じる
             </Button>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div className="flex justify-between items-center">
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 variant="outline"
                 className="border-2"
                 onClick={handleExecuteSettings}
               >
                 設定を実行する
               </Button>
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 variant="ghost"
                 className="text-blue-500 hover:text-blue-700"
               >
@@ -598,7 +670,7 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
                     departments.map((dept) => (
                       <TableRow key={dept.id} className="hover:bg-gray-50">
                         <TableCell className="text-center">
-                          <Checkbox 
+                          <Checkbox
                             checked={selectedDepartments.includes(dept.id)}
                             onCheckedChange={(checked: boolean | 'indeterminate') => handleDepartmentSelect(dept.id, typeof checked === 'boolean' ? checked : false)}
                           />
@@ -637,15 +709,15 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
             <DialogDescription className="sr-only">
               ユーザーを検索して追加します
             </DialogDescription>
-            <Button 
-              variant="link" 
+            <Button
+              variant="link"
               className="text-blue-500 hover:text-blue-700"
               onClick={() => setShowUserSearchDialog(false)}
             >
               閉じる
             </Button>
           </DialogHeader>
-          
+
           <div className="flex-1 overflow-auto">
             <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
               <Table>
@@ -658,8 +730,8 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
                 </TableHeader>
                 <TableBody>
                   {allUsers.map((user, index) => (
-                    <TableRow 
-                      key={index} 
+                    <TableRow
+                      key={index}
                       className="hover:bg-gray-50 cursor-pointer"
                       onClick={() => handleSelectUserFromDialog(user)}
                     >

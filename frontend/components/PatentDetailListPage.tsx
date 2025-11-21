@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Trash2, FileText, Users, RefreshCw, Save } from 'lucide-react';
 import { Button } from './ui/button';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from './ui/select';
 import { Textarea } from './ui/textarea';
 import { Checkbox } from './ui/checkbox';
@@ -25,30 +25,30 @@ interface PatentDetailListPageProps {
 
 interface Patent {
   id: string;
-  patentNo?: string;
-  patentNumber?: string;
-  applicationNo?: string;
+  documentNum?: string;
+  applicationNum?: string;
   applicationDate?: string;
-  publicationNo?: string;
-  publicationNumber?: string;
   publicationDate?: string;
-  applicant?: string;
+  inventionTitle?: string;
   applicantName?: string;
-  inventionName?: string;
-  documentType?: string;
-  documentSubmission?: string;
-  trialDate?: string;
-  gazettePubDate?: string;
-  documentPC?: string;
-  code?: string;
+  fiClassification?: string;
+  publicationNum?: string;
+  announcementNum?: string;
+  registrationNum?: string;
+  appealNum?: string;
+  otherInfo?: string;
+  statusStage?: string;
+  eventDetail?: string;
+  documentUrl?: string;
+  evaluationStatus?: string;
 }
 
-export function PatentDetailListPage({ 
-  titleNo, 
-  titleName, 
-  companyName, 
+export function PatentDetailListPage({
+  titleNo,
+  titleName,
+  companyName,
   totalCount,
-  onBack 
+  onBack
 }: PatentDetailListPageProps) {
   const [patents, setPatents] = useState<Patent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,14 +57,18 @@ export function PatentDetailListPage({
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [selectedPatentId, setSelectedPatentId] = useState<string | null>(null);
-  const [patentStates, setPatentStates] = useState<{[key: string]: {
-    topEvaluation: string;
-    bottomEvaluation: string;
-    abstract: string;
-    claims: string;
-    reasonInput: string;
-    toTrash: boolean;
-  }}>({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [patentStates, setPatentStates] = useState<{
+    [key: string]: {
+      topEvaluation: string;
+      bottomEvaluation: string;
+      abstract: string;
+      claims: string;
+      reasonInput: string;
+      toTrash: boolean;
+    }
+  }>({});
 
   // Fetch patents from API
   useEffect(() => {
@@ -72,31 +76,32 @@ export function PatentDetailListPage({
       try {
         setIsLoading(true);
         console.log('🔄 Fetching patents for company:', companyName);
-        
+
         const result = await patentAPI.getByCompany(companyName, {
           search: companyName
         });
 
         // Normalize possible response wrappers: apiCall -> { data }, controller -> { data: result }
         const payload = result.data?.data ?? result.data ?? result;
-        console.debug('PatentDetailListPage - payload sample:', payload?.patents ? payload.patents.slice(0,3) : payload);
+        console.debug('PatentDetailListPage - payload sample:', payload?.patents ? payload.patents.slice(0, 3) : payload);
 
         if (payload) {
           const patentList = Array.isArray(payload.patents) ? payload.patents : (Array.isArray(payload) ? payload : (payload.data ?? []));
           setPatents(patentList);
-          
+
           // Initialize patent states
-          const initialStates: {[key: string]: any} = {};
+          const initialStates: { [key: string]: any } = {};
           patentList.forEach((patent: Patent) => {
             initialStates[patent.id] = {
               topEvaluation: '未評価',
-              bottomEvaluation: '未評価',
-              abstract: '',
-              claims: '',
-              reasonInput: '',
+              bottomEvaluation: patent.evaluationStatus || '未評価',
+              abstract: patent.abstract || '',
+              claims: patent.claims || '',
+              reasonInput: patent.otherInfo || '',
               toTrash: false
             };
           });
+
           setPatentStates(initialStates);
           console.log('✅ Loaded patents:', patentList.length);
         } else {
@@ -124,6 +129,52 @@ export function PatentDetailListPage({
         [field]: value
       }
     }));
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(patents.map(p => p.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleDelete = async () => {
+    if (selectedIds.size === 0) return;
+
+    if (!confirm(`${selectedIds.size}件の特許を削除してもよろしいですか？`)) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      const idsToDelete = Array.from(selectedIds);
+      const result = await patentAPI.deleteBatch(idsToDelete);
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      // Remove deleted patents from state
+      setPatents(prev => prev.filter(p => !selectedIds.has(p.id)));
+      setSelectedIds(new Set());
+      console.log('Deleted patents:', result.data?.count);
+    } catch (err) {
+      console.error('Failed to delete patents:', err);
+      alert('削除に失敗しました');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleDetailClick = (patentId: string) => {
@@ -156,7 +207,7 @@ export function PatentDetailListPage({
                 出願人: <span className="font-medium">{companyName}</span>
               </span>
               <span className="text-sm text-gray-600">
-                全 {totalCount} 件
+                全 {patents.length} 件
               </span>
             </div>
           </div>
@@ -167,27 +218,63 @@ export function PatentDetailListPage({
       <div className="bg-white border-b">
         <div className="container mx-auto px-4 py-2">
           <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" className="text-sm h-8" onClick={() => setIsExportDialogOpen(true)}>
+            <div className="flex items-center gap-2 mr-2">
+              <Checkbox
+                checked={patents.length > 0 && selectedIds.size === patents.length}
+                onCheckedChange={(checked: boolean) => handleSelectAll(checked)}
+                id="select-all"
+              />
+              <label htmlFor="select-all" className="text-sm text-gray-600 cursor-pointer">
+                すべて選択
+              </label>
+            </div>
+
+            <Button
+              variant={selectedIds.size > 0 ? "default" : "outline"}
+              size="sm"
+              className={`text-sm h-8 ${selectedIds.size > 0
+                ? "bg-red-600 hover:bg-red-700 text-white border-transparent"
+                : "text-red-600 border-red-200 hover:bg-red-50"
+                }`}
+              onClick={handleDelete}
+              disabled={selectedIds.size === 0 || isDeleting}
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              削除 {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
+            </Button>
+
+            <div className="w-px h-5 bg-gray-300"></div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-sm h-8 text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
+              onClick={() => setIsExportDialogOpen(true)}
+            >
               <FileText className="w-4 h-4 mr-1" />
               出力
             </Button>
             <div className="w-px h-5 bg-gray-300"></div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="text-sm h-8"
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-sm h-8 text-yellow-600 border-yellow-200 hover:bg-yellow-50 hover:text-yellow-700"
               onClick={() => setIsAssignmentDialogOpen(true)}
             >
               <Users className="w-4 h-4 mr-1" />
               担当者分担
             </Button>
             <div className="w-px h-5 bg-gray-300"></div>
-            <Button variant="outline" size="sm" className="text-sm h-8">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-sm h-8 text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+            >
               <RefreshCw className="w-4 h-4 mr-1" />
               筆新に更新
             </Button>
             <div className="w-px h-5 bg-gray-300"></div>
-            <Button size="sm" className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white text-sm h-8">
+            <Button size="sm" className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white text-sm h-8 border-0">
               <Save className="w-4 h-4 mr-1" />
               保存
             </Button>
@@ -203,56 +290,93 @@ export function PatentDetailListPage({
               <div className="flex gap-4 p-4">
                 {/* Left Panel - Patent Info */}
                 <div className="w-[280px] border border-gray-200 rounded-lg bg-gray-50 flex-shrink-0 overflow-hidden">
-                  <div className="bg-gradient-to-r from-orange-500 to-yellow-500 px-4 py-2 text-white text-sm">
+                  <div className="bg-gradient-to-r from-orange-500 to-yellow-500 px-4 py-2 text-white text-sm flex items-center gap-2">
+                    <Checkbox
+                      checked={selectedIds.has(patent.id)}
+                      onCheckedChange={(checked: boolean) => handleSelectOne(patent.id, checked)}
+                    />
                     特許情報
                   </div>
                   <div className="p-4 space-y-3 text-sm">
                     <div>
-                      <div className="text-gray-600 mb-1">【発明者コード】</div>
-                      <div className="text-gray-800">{patent.code}</div>
+                      <div className="text-gray-600 mb-1">【文献番号】</div>
+                      <div className="text-gray-800">{patent.documentNum || '-'}</div>
                     </div>
                     <div>
-                      <div className="text-gray-600 mb-1">【専利号】</div>
-                      <div className="text-gray-800">{patent.patentNumber}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 mb-1">【書類】</div>
-                      <div className="text-gray-800">{patent.documentType}</div>
+                      <div className="text-gray-600 mb-1">【出願番号】</div>
+                      <div className="text-gray-800">{patent.applicationNum || '-'}</div>
                     </div>
                     <div>
                       <div className="text-gray-600 mb-1">【出願日】</div>
-                      <div className="text-gray-800">{patent.applicationDate}</div>
+                      <div className="text-gray-800">{patent.applicationDate || '-'}</div>
                     </div>
                     <div>
-                      <div className="text-gray-600 mb-1">【公開・公表号】</div>
-                      <div className="text-gray-800">{patent.publicationNumber}</div>
+                      <div className="text-gray-600 mb-1">【公知日】</div>
+                      <div className="text-gray-800">{patent.publicationDate || '-'}</div>
                     </div>
                     <div>
-                      <div className="text-gray-600 mb-1">【公開・公表日】</div>
-                      <div className="text-gray-800">{patent.publicationDate}</div>
+                      <div className="text-gray-600 mb-1">【発明の名称】</div>
+                      <div className="text-gray-800">{patent.inventionTitle || '-'}</div>
                     </div>
                     <div>
-                      <div className="text-gray-600 mb-1">【書類提出】</div>
-                      <div className="text-gray-800">{patent.documentSubmission}</div>
+                      <div className="text-gray-600 mb-1">【出願人/権利者】</div>
+                      <div className="text-gray-800">{patent.applicantName || '-'}</div>
                     </div>
                     <div>
-                      <div className="text-gray-600 mb-1">【審判日】</div>
-                      <div className="text-gray-800">{patent.trialDate}</div>
+                      <div className="text-gray-600 mb-1">【FI】</div>
+                      <div className="text-gray-800">{patent.fiClassification || '-'}</div>
                     </div>
                     <div>
-                      <div className="text-gray-600 mb-1">【書類会報発行日】</div>
-                      <div className="text-gray-800">{patent.gazettePubDate}</div>
+                      <div className="text-gray-600 mb-1">【公開番号】</div>
+                      <div className="text-gray-800">{patent.publicationNum || '-'}</div>
                     </div>
                     <div>
-                      <div className="text-gray-600 mb-1">【書類用PC】</div>
-                      <div className="text-gray-800">{patent.documentPC}</div>
+                      <div className="text-gray-600 mb-1">【公告番号】</div>
+                      <div className="text-gray-800">{patent.announcementNum || '-'}</div>
                     </div>
-                    
+                    <div>
+                      <div className="text-gray-600 mb-1">【登録番号】</div>
+                      <div className="text-gray-800">{patent.registrationNum || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-600 mb-1">【審判番号】</div>
+                      <div className="text-gray-800">{patent.appealNum || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-600 mb-1">【その他】</div>
+                      <div className="text-gray-800">{patent.otherInfo || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-600 mb-1">【ステージ】</div>
+                      <div className="text-gray-800">{patent.statusStage || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-600 mb-1">【イベント詳細】</div>
+                      <div className="text-gray-800">{patent.eventDetail || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-600 mb-1">【文献URL】</div>
+                      <div className="text-gray-800">
+                        {patent.documentUrl ? (
+                          <a 
+                            href={patent.documentUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline break-all"
+                          >
+                            {patent.documentUrl}
+                          </a>
+                        ) : (
+                          '-'
+                        )}
+                      </div>
+                    </div>
+
                     {/* Detail Button */}
                     <div className="pt-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="w-full text-sm"
                         onClick={() => handleDetailClick(patent.id)}
                       >
@@ -269,15 +393,12 @@ export function PatentDetailListPage({
                     {/* Left Column */}
                     <div className="border border-gray-200 rounded-lg p-3 bg-white">
                       <div className="space-y-2">
-                        <div className="text-sm text-gray-600">【種利者・出願人名】</div>
-                        <div className="text-sm mb-3">{patent.applicantName}</div>
-                        <div className="text-sm text-gray-600 mb-1">【要約】</div>
-                        <Textarea
-                          value={patentStates[patent.id].abstract}
-                          onChange={(e) => updatePatentState(patent.id, 'abstract', e.target.value)}
-                          className="min-h-[120px] w-full resize-none text-sm bg-white"
-                          placeholder=""
-                        />
+                        <div className="text-sm text-gray-600">【出願人/権利者】</div>
+                        <div className="text-sm mb-3">{patent.applicantName || '-'}</div>
+                        <div className="text-sm text-gray-600 mb-1">【FI】</div>
+                        <div className="text-sm bg-gray-50 p-2 rounded min-h-[120px] overflow-auto">
+                          {patent.fiClassification || '-'}
+                        </div>
                       </div>
                     </div>
 
@@ -285,11 +406,11 @@ export function PatentDetailListPage({
                     <div className="border border-gray-200 rounded-lg p-3 bg-white">
                       <div className="space-y-2">
                         <div className="text-sm text-gray-600">【発明の名称】</div>
-                        <div className="text-sm mb-3">{patent.inventionName}</div>
-                        <div className="text-sm text-gray-600 mb-1">【請求の範囲】</div>
+                        <div className="text-sm mb-3">{patent.inventionTitle || '-'}</div>
+                        <div className="text-sm text-gray-600 mb-1">【その他】</div>
                         <Textarea
-                          value={patentStates[patent.id].claims}
-                          onChange={(e) => updatePatentState(patent.id, 'claims', e.target.value)}
+                          value={patentStates[patent.id].reasonInput}
+                          onChange={(e) => updatePatentState(patent.id, 'reasonInput', e.target.value)}
                           className="min-h-[120px] w-full resize-none text-sm bg-white"
                           placeholder=""
                         />
@@ -300,7 +421,7 @@ export function PatentDetailListPage({
                   {/* Evaluation Section */}
                   <div className="border border-orange-200 rounded-lg p-4 space-y-3 bg-orange-50/40">
                     <div className="text-sm">【評価】</div>
-                    
+
                     <div className="flex items-center gap-2">
                       <Button
                         variant="link"
@@ -320,8 +441,8 @@ export function PatentDetailListPage({
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <Select 
-                        value={patentStates[patent.id].bottomEvaluation} 
+                      <Select
+                        value={patentStates[patent.id].bottomEvaluation}
                         onValueChange={(value: string) => updatePatentState(patent.id, 'bottomEvaluation', value)}
                       >
                         <SelectTrigger className="w-[180px]">
@@ -336,7 +457,7 @@ export function PatentDetailListPage({
                       </Select>
 
                       <div className="flex items-center gap-2">
-                        <Checkbox 
+                        <Checkbox
                           id={`trash-${patent.id}`}
                           checked={patentStates[patent.id].toTrash}
                           onCheckedChange={(checked: boolean | 'indeterminate') => updatePatentState(patent.id, 'toTrash', typeof checked === 'boolean' ? checked : false)}

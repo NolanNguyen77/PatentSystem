@@ -6,7 +6,9 @@ import {
   updatePatent,
   updatePatentStatus,
   deletePatent,
+  deletePatents,
   getPatentsByCompany,
+  importPatents,
 } from '../services/patent.service';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { logActivity } from '../middleware/logger.middleware';
@@ -50,7 +52,7 @@ export const createPatentController = async (req: AuthRequest, res: Response): P
     }
 
     const patent = await createPatent(req.body);
-    
+
     await logActivity(
       req.user.id,
       'create',
@@ -82,7 +84,7 @@ export const updatePatentController = async (req: AuthRequest, res: Response): P
     }
 
     const patent = await updatePatent(req.params.id, req.body);
-    
+
     await logActivity(
       req.user.id,
       'update',
@@ -117,7 +119,7 @@ export const updatePatentStatusController = async (
 
     const { status } = req.body;
     const patent = await updatePatentStatus(req.params.id, status);
-    
+
     await logActivity(
       req.user.id,
       'update',
@@ -148,7 +150,7 @@ export const deletePatentController = async (req: AuthRequest, res: Response): P
     }
 
     await deletePatent(req.params.id);
-    
+
     await logActivity(
       req.user.id,
       'delete',
@@ -166,6 +168,43 @@ export const deletePatentController = async (req: AuthRequest, res: Response): P
   } catch (error: any) {
     res.status(error.statusCode || 500).json({
       error: error.message || 'Failed to delete patent',
+    });
+  }
+};
+
+export const deletePatentsController = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids)) {
+      res.status(400).json({ error: 'Invalid IDs provided' });
+      return;
+    }
+
+    const result = await deletePatents(ids);
+
+    await logActivity(
+      req.user.id,
+      'delete',
+      'patent',
+      'bulk',
+      `Deleted ${result.count} patents`,
+      req.ip
+    );
+
+    res.json({
+      data: {
+        message: 'Patents deleted successfully',
+        count: result.count
+      },
+    });
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({
+      error: error.message || 'Failed to delete patents',
     });
   }
 };
@@ -189,3 +228,45 @@ export const getPatentsByCompanyController = async (
   }
 };
 
+export const importPatentsController = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const { rows, columnMapping, titleNo } = req.body;
+
+    if (!rows || !Array.isArray(rows) || rows.length === 0) {
+      res.status(400).json({ error: 'No data rows provided' });
+      return;
+    }
+
+    if (!titleNo) {
+      res.status(400).json({ error: 'Title No is required' });
+      return;
+    }
+
+    // Import patents
+    // Note: titleNo is passed as titleId to the service, which resolves it
+    const result = await importPatents(titleNo, rows, columnMapping);
+
+    await logActivity(
+      req.user.id,
+      'import',
+      'patent',
+      titleNo, // Using titleNo as target ID for log
+      `Imported ${result.saved} patents, updated ${result.updated}`,
+      req.ip
+    );
+
+    res.json({
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('Error in importPatentsController:', error);
+    res.status(error.statusCode || 500).json({
+      error: error.message || 'Failed to import patents',
+    });
+  }
+};

@@ -23,15 +23,14 @@ const systemFields = [
   { key: 'kochiDate', label: '公知日', required: false },
   { key: 'hatumei', label: '発明の名称', required: false },
   { key: 'shutsuganNin', label: '出願人/権利者', required: false },
-  { key: 'ryo', label: '料', required: false },
+  { key: 'fi', label: 'FI', required: false },
   { key: 'kokai', label: '公開番号', required: false },
   { key: 'kokoku', label: '公告番号', required: false },
   { key: 'toroku', label: '登録番号', required: false },
   { key: 'shinpan', label: '審判番号', required: false },
-  { key: 'jiken', label: '事件番号', required: false },
   { key: 'sonota', label: 'その他', required: false },
   { key: 'stage', label: 'ステージ', required: false },
-  { key: 'event', label: 'イベント種類', required: false },
+  { key: 'event', label: 'イベント詳細', required: false },
   { key: 'bunkenUrl', label: '文献URL', required: false },
 ];
 
@@ -48,12 +47,14 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
     skipped: number;
   } | null>(null);
 
+  const [parsedRows, setParsedRows] = useState<any[]>([]);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setSelectedFile(file);
-      
-      // Parse CSV file to get headers
+
+      // Parse CSV file to get headers and data
       const reader = new FileReader();
       reader.onload = (event) => {
         try {
@@ -63,7 +64,19 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
             // Parse first line as header
             const csvColumns = lines[0].split(',').map(col => col.trim());
             setCsvColumns(csvColumns);
-            
+
+            // Parse remaining lines as data
+            const rows = lines.slice(1).map(line => {
+              const values = line.split(',');
+              const row: Record<string, string> = {};
+              csvColumns.forEach((col, index) => {
+                row[col] = values[index]?.trim() || '';
+              });
+              return row;
+            });
+            setParsedRows(rows);
+            console.log(`✅ Parsed ${rows.length} rows from CSV`);
+
             // Auto-map exact matches
             const autoMapping: Record<string, string> = {};
             systemFields.forEach(field => {
@@ -94,8 +107,11 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
     }));
   };
 
+  const [isLoading, setIsLoading] = useState(false);
+
   const handleSaveMapping = async () => {
     // Call API to process import with mapped columns
+    setIsLoading(true);
     try {
       console.log('🔄 Processing import...');
       const token = localStorage.getItem('authToken');
@@ -103,17 +119,18 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       };
-      
+
       // Send import request to backend
       const res = await fetch('http://localhost:4001/api/patents/import', {
         method: 'POST',
         headers,
         body: JSON.stringify({
           columnMapping,
-          titleNo
+          titleNo,
+          rows: parsedRows
         })
       });
-      
+
       if (res.ok) {
         const data = await res.json();
         const stats = {
@@ -124,11 +141,18 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
         };
         setImportStats(stats);
         console.log('✅ Import completed:', stats);
+        setCurrentStep('result');
+      } else {
+        const errorData = await res.json();
+        console.error('❌ Import failed:', errorData);
+        alert(`インポートに失敗しました: ${errorData.error || '不明なエラー'}`);
       }
     } catch (err) {
       console.error('❌ Error processing import:', err);
+      alert('インポート処理中にエラーが発生しました。');
+    } finally {
+      setIsLoading(false);
     }
-    setCurrentStep('result');
   };
 
   const handleFinalSave = () => {
@@ -170,18 +194,16 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
               <div className="p-4 space-y-3">
                 <button
                   onClick={() => setAutoSetOption('noFormat')}
-                  className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                    autoSetOption === 'noFormat'
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-gray-200 bg-white hover:border-gray-300'
-                  }`}
+                  className={`w-full text-left p-4 rounded-lg border-2 transition-all ${autoSetOption === 'noFormat'
+                    ? 'border-green-500 bg-green-50'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
-                      autoSetOption === 'noFormat'
-                        ? 'border-green-500 bg-green-500'
-                        : 'border-gray-300'
-                    }`}>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${autoSetOption === 'noFormat'
+                      ? 'border-green-500 bg-green-500'
+                      : 'border-gray-300'
+                      }`}>
                       {autoSetOption === 'noFormat' && (
                         <div className="w-2 h-2 bg-white rounded-full"></div>
                       )}
@@ -197,18 +219,16 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
 
                 <button
                   onClick={() => setAutoSetOption('hasFormat')}
-                  className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                    autoSetOption === 'hasFormat'
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 bg-white hover:border-gray-300'
-                  }`}
+                  className={`w-full text-left p-4 rounded-lg border-2 transition-all ${autoSetOption === 'hasFormat'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
-                      autoSetOption === 'hasFormat'
-                        ? 'border-blue-500 bg-blue-500'
-                        : 'border-gray-300'
-                    }`}>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${autoSetOption === 'hasFormat'
+                      ? 'border-blue-500 bg-blue-500'
+                      : 'border-gray-300'
+                      }`}>
                       {autoSetOption === 'hasFormat' && (
                         <div className="w-2 h-2 bg-white rounded-full"></div>
                       )}
@@ -231,10 +251,10 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
               </div>
               <div className="p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <input 
-                    type="checkbox" 
-                    id="header-row" 
-                    defaultChecked 
+                  <input
+                    type="checkbox"
+                    id="header-row"
+                    defaultChecked
                     className="w-4 h-4 rounded border-gray-300 text-blue-600"
                   />
                   <Label htmlFor="header-row" className="text-sm cursor-pointer">
@@ -242,9 +262,9 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
                   </Label>
                 </div>
                 <div className="flex items-center gap-2">
-                  <input 
-                    type="checkbox" 
-                    id="skip-duplicates" 
+                  <input
+                    type="checkbox"
+                    id="skip-duplicates"
                     className="w-4 h-4 rounded border-gray-300 text-blue-600"
                   />
                   <Label htmlFor="skip-duplicates" className="text-sm cursor-pointer">
@@ -252,10 +272,10 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
                   </Label>
                 </div>
                 <div className="flex items-center gap-2">
-                  <input 
-                    type="checkbox" 
-                    id="validate-data" 
-                    defaultChecked 
+                  <input
+                    type="checkbox"
+                    id="validate-data"
+                    defaultChecked
                     className="w-4 h-4 rounded border-gray-300 text-blue-600"
                   />
                   <Label htmlFor="validate-data" className="text-sm cursor-pointer">
@@ -341,8 +361,8 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
                             id="csv-upload-main"
                           />
                           <label htmlFor="csv-upload-main">
-                            <Button 
-                              variant="outline" 
+                            <Button
+                              variant="outline"
                               className="border-2 border-orange-500 text-orange-600 hover:bg-orange-50 px-8 py-6 text-base"
                               asChild
                             >
@@ -442,7 +462,7 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
                         {systemFields.map((field) => {
                           const mappedColumn = columnMapping[field.key];
                           const hasMatch = mappedColumn && csvColumns.includes(mappedColumn);
-                          
+
                           return (
                             <div key={field.key} className="grid grid-cols-2 gap-4 px-6 py-3 hover:bg-gray-50">
                               <div className="flex items-center">
@@ -501,10 +521,11 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
                       </Button>
                       <Button
                         onClick={handleSaveMapping}
+                        disabled={isLoading}
                         className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white px-8"
                       >
-                        保存
-                        <ChevronRight className="w-5 h-5 ml-2" />
+                        {isLoading ? '処理中...' : '保存'}
+                        {!isLoading && <ChevronRight className="w-5 h-5 ml-2" />}
                       </Button>
                     </div>
                   </div>

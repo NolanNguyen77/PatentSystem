@@ -6,7 +6,9 @@ import {
   updatePatentController,
   updatePatentStatusController,
   deletePatentController,
+  deletePatentsController,
   getPatentsByCompanyController,
+  importPatentsController,
 } from '../controllers/patent.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validation.middleware';
@@ -16,6 +18,8 @@ const router = Router();
 
 router.use(authenticate);
 
+router.post('/import', importPatentsController);
+router.post('/delete-batch', deletePatentsController);
 router.get('/:id', getPatentByIdController);
 router.post('/', validate(createPatentSchema), createPatentController);
 router.put('/:id', validate(updatePatentSchema), updatePatentController);

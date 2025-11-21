@@ -97,7 +97,7 @@ const userSeeds: UserSeed[] = [
   { userId: 'yamamoto', name: 'やまもと', email: 'yamamoto@ipfine.jp', password: '1', departmentName: '調査力開発', permission: '管理者' },
   { userId: 'yamamoto1', name: 'やまもと１', email: 'yamamoto1@ipfine.jp', password: '1', departmentName: '調査力開発', permission: '管理者' },
   { userId: 'yamamoto2', name: 'やまもと２', email: 'yamamoto2@ipfine.jp', password: '1', departmentName: '調査力開発', permission: '管理者' },
-  { userId: 'tan286', name: 'Tan Nguyen', email: 'Nguyen_TT@ipfine.jp', password: '026339229', departmentName: '調査力部所', permission: '管理者' },
+  { userId: 'tan286', name: 'グエン・タイ・タン', email: 'Nguyen_TT@ipfine.jp', password: '026339229', departmentName: '調査力部所', permission: '管理者' },
 ];
 
 const titleSeeds: TitleSeed[] = [
@@ -140,6 +140,8 @@ const titleTargets: Record<string, { total: number; evaluated: number }> = {
   '000035': { total: 8, evaluated: 3 },
 };
 
+/*
+// PATENT SEEDS DISABLED - Patents should only be imported via CSV Import
 const patentSeeds: PatentSeedInput[] = [];
 const countsByTitle = new Map<string, number>();
 const evaluationTracker = new Map<string, { evaluated: number; total: number }>();
@@ -257,37 +259,39 @@ const generateSequentialPatents = (
   });
 };
 
-// Fill remaining patents for each title based on mock totals
-generateSequentialPatents('000032', [
-  { applicant: '末×グループ株式会社', count: titleTargets['000032'].total - (countsByTitle.get('000032') ?? 0), baseName: '包装技術', baseYear: 2024 },
-]);
+// Comment out auto-generated patents - only use manually added or CSV imported data
+// generateSequentialPatents('000032', [
+//   { applicant: '末×グループ株式会社', count: titleTargets['000032'].total - (countsByTitle.get('000032') ?? 0), baseName: '包装技術', baseYear: 2024 },
+// ]);
 
-generateSequentialPatents('000034', [
-  { applicant: '任天堂株式会社', count: 10, baseName: 'ゲーム入力装置', baseYear: 2023 },
-  { applicant: '株式会社ソニー・インタラクティブエンタテインメント', count: 8, baseName: 'インタラクティブ処理', baseYear: 2023 },
-  { applicant: 'アイ・ピー・ビー株式会社', count: 5, baseName: '映像処理', baseYear: 2024 },
-  { applicant: '楽天グループ株式会社', count: 4, baseName: 'コマース制御', baseYear: 2024 },
-  { applicant: '市金株式会社', count: 3, baseName: '金融プラットフォーム', baseYear: 2024 },
-  { applicant: 'シー・ブル一株式会社', count: 2, baseName: 'クラウド同期', baseYear: 2024 },
-  { applicant: '株式会社コナミデジタルエンタテインメント', count: 1, baseName: 'エンタメAI', baseYear: 2025 },
-  { applicant: 'アルファスアルバイト・オートメーション株式会社', count: 1, baseName: '自動化制御', baseYear: 2025 },
-]);
+// generateSequentialPatents('000034', [
+//   { applicant: '任天堂株式会社', count: 10, baseName: 'ゲーム入力装置', baseYear: 2023 },
+//   { applicant: '株式会社ソニー・インタラクティブエンタテインメント', count: 8, baseName: 'インタラクティブ処理', baseYear: 2023 },
+//   { applicant: 'アイ・ピー・ビー株式会社', count: 5, baseName: '映像処理', baseYear: 2024 },
+//   { applicant: '楽天グループ株式会社', count: 4, baseName: 'コマース制御', baseYear: 2024 },
+//   { applicant: '市金株式会社', count: 3, baseName: '金融プラットフォーム', baseYear: 2024 },
+//   { applicant: 'シー・ブル一株式会社', count: 2, baseName: 'クラウド同期', baseYear: 2024 },
+//   { applicant: '株式会社コナミデジタルエンタテインメント', count: 1, baseName: 'エンタメAI', baseYear: 2025 },
+//   { applicant: 'アルファスアルバイト・オートメーション株式会社', count: 1, baseName: '自動化制御', baseYear: 2025 },
+// ]);
 
-generateSequentialPatents('000035', [
-  { applicant: 'コピー技研株式会社', count: 4, baseName: '複写技術', baseYear: 2024 },
-  { applicant: 'ベトテクノロジー株式会社', count: 4, baseName: 'AIレポート', baseYear: 2025 },
-]);
+// generateSequentialPatents('000035', [
+//   { applicant: 'コピー技研株式会社', count: 4, baseName: '複写技術', baseYear: 2024 },
+//   { applicant: 'ベトテクノロジー株式会社', count: 4, baseName: 'AIレポート', baseYear: 2025 },
+// ]);
 
-Object.entries(titleTargets).forEach(([titleNo, target]) => {
-  const count = countsByTitle.get(titleNo) ?? 0;
-  if (count !== target.total) {
-    throw new Error(`Title ${titleNo} expected ${target.total} patents but prepared ${count}`);
-  }
-  const tracker = evaluationTracker.get(titleNo);
-  if (!tracker || tracker.evaluated !== target.evaluated) {
-    throw new Error(`Title ${titleNo} expected ${target.evaluated} evaluated patents but prepared ${tracker?.evaluated ?? 0}`);
-  }
-});
+// Comment out validation since we're not generating sequential patents
+// Object.entries(titleTargets).forEach(([titleNo, target]) => {
+//   const count = countsByTitle.get(titleNo) ?? 0;
+//   if (count !== target.total) {
+//     throw new Error(`Title ${titleNo} expected ${target.total} patents but prepared ${count}`);
+//   }
+//   const tracker = evaluationTracker.get(titleNo);
+//   if (!tracker || tracker.evaluated !== target.evaluated) {
+//     throw new Error(`Title ${titleNo} expected ${target.evaluated} evaluated patents but prepared ${tracker?.evaluated ?? 0}`);
+//   }
+// });
+*/
 
 const toDate = (value?: string | null) => {
   if (!value) return undefined;
@@ -377,6 +381,8 @@ async function main() {
     titleMap.set(title.titleNo, createdTitle.id);
   }
 
+  /*
+  // PATENT SEEDING DISABLED - Use CSV Import instead
   console.log('🧾 Seeding patents and classifications...');
   for (const seed of patentSeeds) {
     const titleId = titleMap.get(seed.titleNo);
@@ -419,8 +425,9 @@ async function main() {
       }
     }
   }
+  */
 
-  console.log('✅ Seeding completed successfully');
+  console.log('✅ Seeding completed successfully (Patents skipped - use CSV Import)');
 }
 
 main()

@@ -108,31 +108,26 @@ model TitleUser {
 
 
 
-// Patents table
+// Patents table - 15 columns only
 model Patent {
   id               String    @id @default(uuid())
   titleId          String    @map("title_id")
-  patentNo         String?   @map("patent_no") // 文献番号
-  applicationNo    String?   @map("application_no") // 出願番号
+  documentNum      String?   @map("document_num") // 文献番号
+  applicationNum   String?   @map("application_num") // 出願番号
   applicationDate  DateTime? @map("application_date") // 出願日
-  publicationDate  DateTime? @map("publication_date") // 公開日
-  publicationNo    String?   @map("publication_no") // 公開番号
-  registrationNo   String?   @map("registration_no") // 登録番号
-  announcementNo   String?   @map("announcement_no") // 公告番号
-  trialNo          String?   @map("trial_no") // 審判番号
-  caseNo           String?   @map("case_no") // 事件番号
-  knownDate        DateTime? @map("known_date") // 公知日
-  inventionName    String?   @map("invention_name") // 発明の名称
-  applicant        String? // 出願人/権利者
-  inventor         String? // 発明者
-  ipc              String? // IPC分類
-  abstract         String? // Large text field
-  claims           String? // Large text field
-  stage            String? // ステージ
-  eventType        String?   @map("event_type") // イベント種類
-  other            String? // Large text field
+  publicationDate  DateTime? @map("publication_date") // 公知日
+  inventionTitle   String?   @map("invention_title") // 発明の名称
+  applicantName    String?   @map("applicant_name") // 出願人/権利者
+  fiClassification String?   @map("fi_classification") // FI
+  publicationNum   String?   @map("publication_num") // 公開番号
+  announcementNum  String?   @map("announcement_num") // 公告番号
+  registrationNum  String?   @map("registration_num") // 登録番号
+  appealNum        String?   @map("appeal_num") // 審判番号
+  otherInfo        String?   @map("other_info") // その他
+  statusStage      String?   @map("status_stage") // ステージ
+  eventDetail      String?   @map("event_detail") // イベント詳細
   documentUrl      String?   @map("document_url") // 文献URL
-  evaluationStatus String    @default("未評価") @map("evaluation_status") // 未評価/有望/無効/etc
+  evaluationStatus String    @default("未評価") @map("evaluation_status")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
@@ -141,7 +136,7 @@ model Patent {
   classifications PatentClassification[]
 
   @@index([titleId])
-  @@index([applicant])
+  @@index([applicantName])
   @@index([applicationDate])
   @@index([publicationDate])
   @@map("patents")

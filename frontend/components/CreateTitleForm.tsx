@@ -33,6 +33,8 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
   const [showUserSearchDialog, setShowUserSearchDialog] = useState(false);
   const [showPermissionWarning, setShowPermissionWarning] = useState(false);
   const [permissionWarningMessage, setPermissionWarningMessage] = useState('');
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [createdTitleInfo, setCreatedTitleInfo] = useState<any>(null);
   const [selectedDepartments, setSelectedDepartments] = useState<number[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
@@ -49,6 +51,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
       try {
         console.log('🔄 Fetching users, departments, and parent titles...');
         const token = localStorage.getItem('authToken');
+        const currentUsername = localStorage.getItem('username');
         const headers = {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -58,15 +61,45 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
         const usersRes = await fetch('http://localhost:4001/api/users', { headers });
         if (usersRes.ok) {
           const usersData = await usersRes.json();
+          console.log('📦 Raw users API response:', usersData);
+          
           if (usersData.data && usersData.data.users) {
-            setAllUsers(usersData.data.users);
-            setUsers([{ 
-              id: 1, 
-              name: usersData.data.users[0]?.name || 'User', 
-              userId: usersData.data.users[0]?.userId || '', 
-              department: '調査力部所', 
-              canEvaluate: true 
-            }]);
+            console.log('👤 First user sample:', usersData.data.users[0]);
+            
+            // Map users with department name
+            // Backend already flattens department to string, so use it directly
+            const mappedUsers = usersData.data.users.map((u: any) => {
+              // Backend returns department as string already
+              const deptName = typeof u.department === 'string' ? u.department : (u.department?.name || u.departmentName || '');
+              console.log(`Mapping user ${u.userId}: dept = "${deptName}"`, u);
+              return {
+                ...u,
+                dept: deptName
+              };
+            });
+            
+            console.log('✅ Mapped users:', mappedUsers);
+            setAllUsers(mappedUsers);
+            
+            // Find current logged-in user and set as default first row
+            const currentUser = mappedUsers.find((u: any) => u.userId === currentUsername);
+            if (currentUser) {
+              setSelectedUsers([{
+                id: Date.now(),
+                userId: currentUser.userId,
+                name: currentUser.name,
+                dept: currentUser.dept,
+                section: currentUser.section || '',
+                permission: currentUser.role || currentUser.permission || '管理者',
+                isMain: true, // Default to main responsible
+                displayOrder: 0,
+                userDisplayOrder: 0,
+                evalEmail: false,
+                confirmEmail: false,
+                isEmpty: false
+              }]);
+              console.log('✅ Set current user as default:', currentUser);
+            }
           }
         }
         
@@ -285,7 +318,13 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
   };
 
   const handleDeleteUser = (userId: number) => {
-    setSelectedUsers(selectedUsers.filter(user => user.id !== userId));
+    const user = selectedUsers.find(u => u.id === userId);
+    const userName = user?.name || user?.userId || 'このユーザー';
+    
+    if (confirm(`${userName}を削除してもよろしいですか？`)) {
+      setSelectedUsers(selectedUsers.filter(user => user.id !== userId));
+      console.log(`✅ Deleted user: ${userName}`);
+    }
   };
 
   const handleOpenUserSearch = (userId: number) => {
@@ -313,26 +352,76 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!titleName) {
       setShowWarning(true);
       return;
     }
-    // Handle form submission
-    const titleData = {
-      titleName,
-      dataType,
-      markType,
-      parentTitle,
-      saveDate,
-      disallowEvaluation,
-      allowEvaluation,
-      selectedUsers
-    };
-    if (onSave) {
-      onSave(titleData);
+    
+    try {
+      // Prepare title data for API
+      // Filter out users without userId
+      const validUsers = selectedUsers.filter(u => u.userId && u.userId.trim() !== '');
+      
+      const titleData = {
+        titleName,
+        dataType: dataType || '特許',
+        markColor: markType !== 'マークなし' ? markType : undefined,
+        parentTitleId: parentTitle || undefined, // Send parent title ID
+        saveDate,
+        disallowEvaluation,
+        allowEvaluation,
+        viewPermission: 'all',
+        editPermission: 'creator',
+        mainEvaluation: true,
+        singlePatentMultipleEvaluations: false,
+        users: validUsers.map(u => ({
+          userId: u.userId,
+          isMainResponsible: u.isMain || false,
+          permission: resolvePermission(u),
+          evalEmail: u.evalEmail || false,
+          confirmEmail: u.confirmEmail || false,
+          displayOrder: u.displayOrder || 0
+        }))
+      };
+      
+      console.log('📤 Submitting title data:', titleData);
+      console.log('📤 Valid users count:', validUsers.length);
+      
+      const result = await titleAPI.create(titleData);
+      
+      console.log('📦 API Result:', result);
+      
+      if (result.error) {
+        console.error('❌ Failed to create title:', result.error);
+        setPermissionWarningMessage(`タイトル作成に失敗しました\n\n${result.error}`);
+        setShowPermissionWarning(true);
+        return;
+      }
+      
+      console.log('✅ Title created successfully:', result.data);
+      
+      // Extract title info from response
+      // Backend may return: { data: { id, titleNo, message } } or { id, titleNo, message }
+      const titleInfo = result.data?.data || result.data;
+      console.log('📋 Title info:', titleInfo);
+      
+      // Show success dialog
+      setCreatedTitleInfo({
+        titleName,
+        titleNo: titleInfo?.titleNo || titleInfo?.id || 'N/A',
+        dataType
+      });
+      setShowSuccessDialog(true);
+      console.log('✅ Success dialog should be visible now');
+      
+      // Don't call onSave here - it will close the form immediately
+      // Instead, call it when user clicks "一覧に戻る" button
+    } catch (error) {
+      console.error('❌ Error creating title:', error);
+      setPermissionWarningMessage(`タイトル作成中にエラーが発生しました\n\n${error instanceof Error ? error.message : 'Unknown error'}`);
+      setShowPermissionWarning(true);
     }
-    console.log('Form submitted');
   };
 
   return (
@@ -432,24 +521,26 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
               </div>
               <div className="flex-1">
                 <Label htmlFor="parentTitle">上位階層タイトル</Label>
-                <Select value={parentTitle} onValueChange={setParentTitle}>
-                  <SelectTrigger id="parentTitle" className="border-2">
-                    <SelectValue placeholder="選択してください" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {parentTitles && parentTitles.length > 0 ? (
-                      parentTitles.map((title: any) => (
-                        <SelectItem key={title.id || title.no} value={title.id || title.no}>
-                          {title.no}：{title.titleName || title.title || title.name}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <div className="p-2 text-sm text-gray-500">
-                        タイトルがありません
-                      </div>
-                    )}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select value={parentTitle} onValueChange={setParentTitle}>
+                    <SelectTrigger id="parentTitle" className="border-2 flex-1">
+                      <SelectValue placeholder="選択してください" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {parentTitles && parentTitles.length > 0 ? (
+                        parentTitles.map((title: any) => (
+                          <SelectItem key={title.id || title.no} value={title.id || title.no}>
+                            {title.no}：{title.titleName || title.title || title.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="p-2 text-sm text-gray-500">
+                          タイトルがありません
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
             {/* Row 3: Save Date */}
@@ -541,7 +632,6 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
                   <TableHead>権限</TableHead>
                   <TableHead>部署名</TableHead>
                   <TableHead>主担当</TableHead>
-                  <TableHead>評価特権</TableHead>
                   <TableHead className="text-center">削除</TableHead>
                 </TableRow>
               </TableHeader>
@@ -594,9 +684,6 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
                           </div>
                         </button>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Checkbox defaultChecked={user.evalEmail} />
                     </TableCell>
                     <TableCell className="text-center">
                       <Button 
@@ -758,26 +845,106 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
 
       {/* Permission Warning Dialog */}
       <Dialog open={showPermissionWarning} onOpenChange={setShowPermissionWarning}>
-        <DialogContent className="bg-gray-900 text-white border-gray-700 max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-white">localhost:3001 の内容</DialogTitle>
+        <DialogContent className="max-w-lg border-2 border-orange-200 shadow-2xl">
+          <DialogHeader className="border-b pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-100 to-yellow-100 flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-orange-500" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold text-gray-900">
+                  権限エラー
+                </DialogTitle>
+                <p className="text-sm text-gray-500 mt-1">
+                  操作を完了できません
+                </p>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-0.5" />
-              <div className="space-y-2 text-sm">
+          
+          <div className="py-6">
+            <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-r-lg">
+              <div className="space-y-2">
                 {permissionWarningMessage.split('\n').map((line, index) => (
-                  <p key={index} className="text-gray-100">{line}</p>
+                  <p key={index} className="text-gray-800 leading-relaxed">
+                    {line}
+                  </p>
                 ))}
               </div>
             </div>
           </div>
-          <div className="flex justify-end">
+          
+          <div className="flex justify-end gap-2 pt-4 border-t">
             <Button 
               onClick={() => setShowPermissionWarning(false)}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white px-8 shadow-md hover:shadow-lg transition-all"
             >
               OK
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="max-w-md border-2 border-orange-200">
+          <DialogHeader>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-100 to-yellow-100 flex items-center justify-center">
+                <Check className="w-6 h-6 text-orange-600" />
+              </div>
+              <div>
+                <DialogTitle className="text-base">タイトルを作成しました</DialogTitle>
+                <p className="text-xs text-gray-500">正常に保存されました</p>
+              </div>
+            </div>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {createdTitleInfo && (
+              <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Save className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-900 mb-1">
+                      {createdTitleInfo.titleName}
+                    </p>
+                    <div className="flex gap-2 text-xs text-gray-600">
+                      {createdTitleInfo.titleNo && (
+                        <span>No: {createdTitleInfo.titleNo}</span>
+                      )}
+                      {createdTitleInfo.dataType && (
+                        <Badge variant="outline" className="text-xs">
+                          {createdTitleInfo.dataType}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button 
+              onClick={() => {
+                setShowSuccessDialog(false);
+                setCreatedTitleInfo(null);
+                
+                // Call onSave to trigger refresh in parent
+                if (onSave) {
+                  console.log('📞 Calling onSave callback from dialog button');
+                  onSave({ success: true });
+                }
+                
+                // Then go back to list
+                if (onBack) {
+                  onBack();
+                }
+              }}
+              className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white font-semibold shadow-md"
+            >
+              一覧に戻る
             </Button>
           </div>
         </DialogContent>

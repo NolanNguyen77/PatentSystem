@@ -17,7 +17,7 @@ export const validate = (schema: ZodSchema) => {
           path: err.path.join('.'),
           message: err.message,
         }));
-        throw new AppError(`Validation error: ${errors[0].message}`, 400);
+        throw new AppError(`Validation error: ${errors[0].path} - ${errors[0].message}`, 400);
       }
       next(error);
     }

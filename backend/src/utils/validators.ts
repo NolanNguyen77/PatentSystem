@@ -14,7 +14,7 @@ const titleBodySchema = z.object({
   titleName: z.string().min(1, 'Title name is required'),
   dataType: z.enum(['特許', '論文', '意匠', '商標', 'フリー']).default('特許'),
   markColor: z.string().optional(),
-  parentTitleId: z.string().uuid().optional(),
+  parentTitleId: z.string().optional(),
   saveDate: z.string().regex(/^\d{4}\/\d{2}$/, 'Save date must be in YYYY/MM format'),
   disallowEvaluation: z.boolean().default(false),
   allowEvaluation: z.boolean().default(true),

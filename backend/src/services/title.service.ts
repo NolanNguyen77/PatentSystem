@@ -62,6 +62,13 @@ export const getAllTitles = async (
           }
         }
       },
+      parentTitle: {
+        select: {
+          id: true,
+          titleNo: true,
+          titleName: true,
+        }
+      },
       titleUsers: {
         include: {
           user: {
@@ -120,6 +127,7 @@ export const getAllTitles = async (
       id: title.id,
       no: title.titleNo,
       title: title.titleName,
+      titleName: title.titleName,
       department: departmentName,
       responsible: responsibleName,
       dataCount: total,
@@ -131,6 +139,12 @@ export const getAllTitles = async (
       dataType: title.dataType,
       attachments: 0, // TODO: Count attachments
       markColor: title.markColor || '',
+      parentTitleId: title.parentTitleId,
+      parentTitle: title.parentTitle ? {
+        id: title.parentTitle.id,
+        no: title.parentTitle.titleNo,
+        name: title.parentTitle.titleName,
+      } : null,
     };
   });
 
@@ -246,7 +260,7 @@ export const createTitle = async (data: CreateTitleData, createdBy: string) => {
   // Validate: only 管理者 can be mainResponsible (主担当)
   let titleUsersCreate: any = undefined;
   let mainOwnerFromResolved: string | undefined = undefined;
-  
+
   if (data.users && data.users.length > 0) {
     const resolvedUsers: any[] = [];
     for (const u of data.users) {
@@ -276,8 +290,8 @@ export const createTitle = async (data: CreateTitleData, createdBy: string) => {
         permissionString === '管理者'
           ? { isAdmin: true, isGeneral: false, isViewer: false }
           : permissionString === '閲覧'
-          ? { isAdmin: false, isGeneral: false, isViewer: true }
-          : { isAdmin: false, isGeneral: true, isViewer: false };
+            ? { isAdmin: false, isGeneral: false, isViewer: true }
+            : { isAdmin: false, isGeneral: true, isViewer: false };
 
       resolvedUsers.push({
         userId: userRecord.id,
@@ -313,7 +327,7 @@ export const createTitle = async (data: CreateTitleData, createdBy: string) => {
       mainEvaluation: data.mainEvaluation !== false,
       singlePatentMultipleEvaluations: data.singlePatentMultipleEvaluations || false,
       createdBy,
-      // mainOwnerId will be set after titleUsers are created
+      mainOwnerId: mainOwnerFromResolved, // Set mainOwnerId directly during creation
       titleUsers: titleUsersCreate,
     },
     include: {
@@ -325,15 +339,7 @@ export const createTitle = async (data: CreateTitleData, createdBy: string) => {
     },
   });
 
-  // Set mainOwnerId based on titleUsers isMainResponsible
-  if (mainOwnerFromResolved) {
-    await prisma.title.update({
-      where: { id: title.id },
-      data: { 
-        mainOwnerId: mainOwnerFromResolved,
-      } as any, // Cast to any to bypass Prisma type checking until schema updates propagate
-    });
-  }
+  // No need for separate update call anymore
 
   return title;
 };

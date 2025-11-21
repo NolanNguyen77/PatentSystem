@@ -56,15 +56,15 @@ export const createTitleController = async (req: AuthRequest, res: Response): Pr
       res.status(401).json({ error: 'Not authenticated' });
       return;
     }
-    
+
     // Gọi service để tạo title
     const title = await createTitle(req.body, req.user.userId);
-    
+
     // Log activity vào database
     await logActivity(
       req.user.id,
       'create',
-      'title',    
+      'title',
       title.id,
       `Created title: ${title.titleName}`,
       req.ip,
@@ -78,8 +78,10 @@ export const createTitleController = async (req: AuthRequest, res: Response): Pr
       },
     });
   } catch (error: any) {
+    console.error('❌ Error in createTitleController:', error);
     res.status(error.statusCode || 500).json({
       error: error.message || 'Failed to create title',
+      details: error.stack // Optional: include stack trace for debugging (remove in production)
     });
   }
 };
@@ -92,7 +94,7 @@ export const updateTitleController = async (req: AuthRequest, res: Response): Pr
     }
 
     const title = await updateTitle(req.params.id, req.body, req.user.id, req.user.permission);
-    
+
     await logActivity(
       req.user.id,
       'update',
@@ -123,7 +125,7 @@ export const deleteTitleController = async (req: AuthRequest, res: Response): Pr
     }
 
     await deleteTitle(req.params.id, req.user.id, req.user.permission);
-    
+
     await logActivity(
       req.user.id,
       'delete',
@@ -154,7 +156,7 @@ export const copyTitleController = async (req: AuthRequest, res: Response): Prom
 
     const { newTitleName } = req.body;
     const result = await copyTitle(req.params.id, newTitleName, req.user.id, req.user.permission);
-    
+
     await logActivity(
       req.user.id,
       'create',

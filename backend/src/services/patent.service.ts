@@ -4,25 +4,20 @@ import { generateClassifications } from '../utils/classification';
 
 export interface CreatePatentData {
   titleId: string;
-  patentNo?: string;
-  applicationNo?: string;
+  documentNum?: string;
+  applicationNum?: string;
   applicationDate?: string | Date;
   publicationDate?: string | Date;
-  publicationNo?: string;
-  registrationNo?: string;
-  announcementNo?: string;
-  trialNo?: string;
-  caseNo?: string;
-  knownDate?: string | Date;
-  inventionName?: string;
-  applicant?: string;
-  inventor?: string;
-  ipc?: string;
-  abstract?: string;
-  claims?: string;
-  stage?: string;
-  eventType?: string;
-  other?: string;
+  inventionTitle?: string;
+  applicantName?: string;
+  fiClassification?: string;
+  publicationNum?: string;
+  announcementNum?: string;
+  registrationNum?: string;
+  appealNum?: string;
+  otherInfo?: string;
+  statusStage?: string;
+  eventDetail?: string;
   documentUrl?: string;
   evaluationStatus?: string;
 }
@@ -35,7 +30,8 @@ const parseDate = (value?: string | Date | null) => {
   const date = value instanceof Date ? value : new Date(value);
 
   if (isNaN(date.getTime())) {
-    throw new AppError(`Invalid date format: ${value}`, 400);
+    // throw new AppError(`Invalid date format: ${value}`, 400);
+    return undefined; // Return undefined instead of throwing to avoid breaking import
   }
 
   return date;
@@ -75,8 +71,6 @@ export const getPatentsByTitle = async (
     applicant?: string;
   }
 ) => {
-  // Accept either the Title.id (UUID) or the human-readable titleNo.
-  // If title not found, return an empty result (so frontend always receives JSON).
   let titleId = titleIdentifier;
   const titleById = await prisma.title.findUnique({ where: { id: titleIdentifier } });
   if (!titleById) {
@@ -105,15 +99,14 @@ export const getPatentsByTitle = async (
 
   if (filters.search) {
     where.OR = [
-      { patentNo: { contains: filters.search } },
-      { inventionName: { contains: filters.search } },
-      { applicant: { contains: filters.search } },
-      { inventor: { contains: filters.search } },
+      { documentNum: { contains: filters.search } },
+      { inventionTitle: { contains: filters.search } },
+      { applicantName: { contains: filters.search } },
     ];
   }
 
   if (filters.applicant) {
-    where.applicant = filters.applicant;
+    where.applicantName = filters.applicant;
   }
 
   const patents = await prisma.patent.findMany({
@@ -172,14 +165,12 @@ export const getPatentById = async (id: string) => {
 export const createPatent = async (data: CreatePatentData) => {
   const applicationDate = parseDate(data.applicationDate);
   const publicationDate = parseDate(data.publicationDate);
-  const knownDate = parseDate(data.knownDate);
-  // Resolve titleId: allow callers to pass either the title UUID or the titleNo
+
   let titleIdToUse = data.titleId;
   if (!titleIdToUse) {
     throw new AppError('titleId is required', 400);
   }
 
-  // If the provided value is not a Title.id, try to resolve by titleNo
   const existingTitleById = await prisma.title.findUnique({ where: { id: titleIdToUse } });
   if (!existingTitleById) {
     const existingByNo = await prisma.title.findUnique({ where: { titleNo: titleIdToUse } as any });
@@ -194,31 +185,25 @@ export const createPatent = async (data: CreatePatentData) => {
     const patent = await prisma.patent.create({
       data: {
         titleId: titleIdToUse,
-      patentNo: data.patentNo,
-      applicationNo: data.applicationNo,
-      applicationDate,
-      publicationDate,
-      publicationNo: data.publicationNo,
-      registrationNo: data.registrationNo,
-      announcementNo: data.announcementNo,
-      trialNo: data.trialNo,
-      caseNo: data.caseNo,
-      knownDate,
-      inventionName: data.inventionName,
-      applicant: data.applicant,
-      inventor: data.inventor,
-      ipc: data.ipc,
-      abstract: data.abstract,
-      claims: data.claims,
-      stage: data.stage,
-      eventType: data.eventType,
-      other: data.other,
-      documentUrl: data.documentUrl,
+        documentNum: data.documentNum,
+        applicationNum: data.applicationNum,
+        applicationDate,
+        publicationDate,
+        inventionTitle: data.inventionTitle,
+        applicantName: data.applicantName,
+        fiClassification: data.fiClassification,
+        publicationNum: data.publicationNum,
+        announcementNum: data.announcementNum,
+        registrationNum: data.registrationNum,
+        appealNum: data.appealNum,
+        otherInfo: data.otherInfo,
+        statusStage: data.statusStage,
+        eventDetail: data.eventDetail,
+        documentUrl: data.documentUrl,
         evaluationStatus: data.evaluationStatus || '未評価',
       },
     });
 
-    // Auto-classify patent
     if (applicationDate || publicationDate) {
       const date = applicationDate || publicationDate;
       if (date) {
@@ -228,7 +213,6 @@ export const createPatent = async (data: CreatePatentData) => {
 
     return patent;
   } catch (err: any) {
-    // Translate Prisma FK errors to a friendlier message
     if (err && err.code === 'P2003') {
       throw new AppError('Foreign key constraint violated: related record not found', 400);
     }
@@ -239,38 +223,30 @@ export const createPatent = async (data: CreatePatentData) => {
 export const updatePatent = async (id: string, data: Partial<CreatePatentData>) => {
   const applicationDate = parseDate(data.applicationDate);
   const publicationDate = parseDate(data.publicationDate);
-  const knownDate = parseDate(data.knownDate);
 
   const patent = await prisma.patent.update({
     where: { id },
     data: {
-      patentNo: data.patentNo,
-      applicationNo: data.applicationNo,
+      documentNum: data.documentNum,
+      applicationNum: data.applicationNum,
       applicationDate,
       publicationDate,
-      publicationNo: data.publicationNo,
-      registrationNo: data.registrationNo,
-      announcementNo: data.announcementNo,
-      trialNo: data.trialNo,
-      caseNo: data.caseNo,
-      knownDate,
-      inventionName: data.inventionName,
-      applicant: data.applicant,
-      inventor: data.inventor,
-      ipc: data.ipc,
-      abstract: data.abstract,
-      claims: data.claims,
-      stage: data.stage,
-      eventType: data.eventType,
-      other: data.other,
+      inventionTitle: data.inventionTitle,
+      applicantName: data.applicantName,
+      fiClassification: data.fiClassification,
+      publicationNum: data.publicationNum,
+      announcementNum: data.announcementNum,
+      registrationNum: data.registrationNum,
+      appealNum: data.appealNum,
+      otherInfo: data.otherInfo,
+      statusStage: data.statusStage,
+      eventDetail: data.eventDetail,
       documentUrl: data.documentUrl,
       evaluationStatus: data.evaluationStatus,
     },
   });
 
-  // Re-classify if date changed
   if (applicationDate || publicationDate) {
-    // Delete old classifications to keep data consistent
     await prisma.patentClassification.deleteMany({
       where: { patentId: id },
     });
@@ -286,7 +262,7 @@ export const updatePatent = async (id: string, data: Partial<CreatePatentData>) 
 
 export const updatePatentStatus = async (id: string, status: 'evaluated' | 'unevaluated') => {
   const evaluationStatus = status === 'evaluated' ? '評価済' : '未評価';
-  
+
   return await prisma.patent.update({
     where: { id },
     data: { evaluationStatus },
@@ -294,11 +270,36 @@ export const updatePatentStatus = async (id: string, status: 'evaluated' | 'unev
 };
 
 export const deletePatent = async (id: string) => {
-  await prisma.patent.delete({
-    where: { id },
-  });
+  await prisma.$transaction([
+    prisma.patentClassification.deleteMany({ where: { patentId: id } }),
+    prisma.evaluation.deleteMany({ where: { patentId: id } }),
+    prisma.patent.delete({ where: { id } })
+  ]);
 
   return { message: 'Patent deleted successfully' };
+};
+
+export const deletePatents = async (ids: string[]) => {
+  if (!ids.length) return { count: 0 };
+
+  const result = await prisma.$transaction(async (tx) => {
+    // Delete related records first
+    await tx.patentClassification.deleteMany({
+      where: { patentId: { in: ids } }
+    });
+    await tx.evaluation.deleteMany({
+      where: { patentId: { in: ids } }
+    });
+
+    // Delete patents
+    return await tx.patent.deleteMany({
+      where: {
+        id: { in: ids }
+      }
+    });
+  });
+
+  return { message: 'Patents deleted successfully', count: result.count };
 };
 
 export const getPatentsByCompany = async (
@@ -308,7 +309,7 @@ export const getPatentsByCompany = async (
   }
 ) => {
   const where: any = {
-    applicant: companyName,
+    applicantName: companyName,
   };
 
   if (filters.status === 'evaluated') {
@@ -346,3 +347,94 @@ export const getPatentsByCompany = async (
   };
 };
 
+export const importPatents = async (
+  titleId: string,
+  rows: Record<string, string>[],
+  columnMapping: Record<string, string>
+) => {
+  let targetTitleId = titleId;
+  const existingTitleById = await prisma.title.findUnique({ where: { id: titleId } });
+  if (!existingTitleById) {
+    const existingByNo = await prisma.title.findUnique({ where: { titleNo: titleId } as any });
+    if (existingByNo) {
+      targetTitleId = existingByNo.id;
+    } else {
+      throw new AppError('Title not found for provided titleId/titleNo', 400);
+    }
+  }
+
+  let saved = 0;
+  let updated = 0;
+  let skipped = 0;
+
+  for (const row of rows) {
+    try {
+      const getData = (key: string) => {
+        const csvCol = columnMapping[key];
+        const value = csvCol ? row[csvCol] : undefined;
+        // Return undefined for empty strings to avoid storing empty values
+        return value && value.trim() !== '' ? value.trim() : undefined;
+      };
+
+      const documentNum = getData('bunken'); // 文献番号
+      if (!documentNum) {
+        skipped++;
+        continue;
+      }
+
+      const patentData: any = {
+        titleId: targetTitleId,
+        documentNum: documentNum,
+        applicationNum: getData('shutsugan'),
+        applicationDate: parseDate(getData('shutsuganDate')),
+        publicationDate: parseDate(getData('kochiDate')),
+        inventionTitle: getData('hatumei'),
+        applicantName: getData('shutsuganNin'),
+        fiClassification: getData('fi'),
+        publicationNum: getData('kokai'),
+        announcementNum: getData('kokoku'),
+        registrationNum: getData('toroku'),
+        appealNum: getData('shinpan'),
+        otherInfo: getData('sonota'),
+        statusStage: getData('stage'),
+        eventDetail: getData('event'),
+        documentUrl: getData('bunkenUrl'),
+        evaluationStatus: '未評価'
+      };
+
+      const existing = await prisma.patent.findFirst({
+        where: {
+          titleId: targetTitleId,
+          documentNum: documentNum
+        }
+      });
+
+      if (existing) {
+        await prisma.patent.update({
+          where: { id: existing.id },
+          data: patentData
+        });
+        updated++;
+      } else {
+        const newPatent = await prisma.patent.create({
+          data: patentData
+        });
+
+        if (patentData.applicationDate) {
+          await upsertPatentClassifications(newPatent.id, targetTitleId, patentData.applicationDate);
+        }
+        saved++;
+      }
+    } catch (err) {
+      console.error('Error importing row:', err);
+      skipped++;
+    }
+  }
+
+  return {
+    total: rows.length,
+    saved,
+    updated,
+    skipped
+  };
+};

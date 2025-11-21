@@ -50,9 +50,25 @@ async function apiCall<T>(
     });
 
     if (!response.ok) {
-      const errorData = await response.text();
-      console.error('❌ API Error Response:', errorData);
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      let errorMessage = `API Error: ${response.status} ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        console.error('❌ API Error Response JSON:', errorData);
+        if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+        if (errorData.details) {
+          console.error('❌ Error Details:', errorData.details);
+        }
+      } catch (e) {
+        // If not JSON, try text
+        const errorText = await response.text();
+        console.error('❌ API Error Response Text:', errorText);
+        if (errorText) {
+          errorMessage = errorText;
+        }
+      }
+      return { error: errorMessage };
     }
 
     const data = await response.json();
@@ -71,7 +87,7 @@ const realAuthAPI = {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     });
-    
+
     if (result.data && result.data.token) {
       // Store token in localStorage
       localStorage.setItem('authToken', result.data.token);
@@ -79,7 +95,7 @@ const realAuthAPI = {
         localStorage.setItem('refreshToken', result.data.refreshToken);
       }
     }
-    
+
     return result;
   },
 
@@ -104,7 +120,7 @@ const realTitleAPI = {
     if (filters?.search) params.append('search', filters.search);
     if (filters?.page) params.append('page', filters.page.toString());
     if (filters?.limit) params.append('limit', filters.limit.toString());
-    
+
     return apiCall<{
       titles: any[];
       total: number;
@@ -179,10 +195,10 @@ const realMergeAPI = {
       selectedEvaluations: string[];
     };
   }) => {
-    return apiCall<{ 
-      newTitleId: string; 
-      mergedCount: number; 
-      message: string 
+    return apiCall<{
+      newTitleId: string;
+      mergedCount: number;
+      message: string
     }>('/titles/merge', {
       method: 'POST',
       body: JSON.stringify(mergeData),
@@ -242,6 +258,13 @@ const realPatentAPI = {
       body: JSON.stringify(patentData),
     });
   },
+
+  deleteBatch: async (ids: string[]) => {
+    return apiCall<{ message: string; count: number }>('/patents/delete-batch', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    });
+  },
 };
 
 const realImportExportAPI = {
@@ -250,10 +273,10 @@ const realImportExportAPI = {
     formData.append('file', file);
     formData.append('mapping', JSON.stringify(columnMapping));
 
-    return apiCall<{ 
-      imported: number; 
-      failed: number; 
-      message: string 
+    return apiCall<{
+      imported: number;
+      failed: number;
+      message: string
     }>('/import/csv', {
       method: 'POST',
       body: formData,
@@ -273,9 +296,9 @@ const realImportExportAPI = {
   },
 
   getExportFields: async () => {
-    return apiCall<{ 
-      allFields: string[]; 
-      defaultFields: string[] 
+    return apiCall<{
+      allFields: string[];
+      defaultFields: string[]
     }>('/export/fields');
   },
 };
@@ -285,10 +308,10 @@ const realAttachmentAPI = {
     const formData = new FormData();
     formData.append('file', file);
 
-    return apiCall<{ 
-      id: string; 
-      filename: string; 
-      url: string 
+    return apiCall<{
+      id: string;
+      filename: string;
+      url: string
     }>(`/titles/${titleId}/attachments`, {
       method: 'POST',
       body: formData,
