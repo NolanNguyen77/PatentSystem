@@ -73,6 +73,7 @@ export const getAllTitles = async (
         include: {
           user: {
             select: {
+              id: true,
               userId: true,
               name: true,
               department: {
@@ -121,6 +122,7 @@ export const getAllTitles = async (
     // Prefer explicit mainOwner relation when present
     const mainOwner = (title as any).mainOwner;
     const responsibleName = mainOwner?.name || title.titleUsers.find((tu: any) => tu.isMainResponsible)?.user.name || '';
+    const responsibleId = mainOwner?.id || title.titleUsers.find((tu: any) => tu.isMainResponsible)?.user.id || '';
     const departmentName = mainOwner?.department?.name || title.titleUsers.find((tu: any) => tu.isMainResponsible)?.user.department?.name || '';
 
     return {
@@ -130,6 +132,7 @@ export const getAllTitles = async (
       titleName: title.titleName,
       department: departmentName,
       responsible: responsibleName,
+      responsibleId: responsibleId,
       dataCount: total,
       evaluated,
       notEvaluated,
@@ -210,8 +213,32 @@ export const getTitleById = async (id: string, userId: string, userPermission: s
   const notEvaluated = title.patents.filter((p: any) => p.evaluationStatus === '未評価').length;
   const progressRate = total > 0 ? (evaluated / total) * 100 : 0;
 
+  // Calculate assigned count for each user
+  const patentIds = title.patents.map((p: any) => p.id);
+
+  const assignmentCounts = await prisma.patentAssignment.groupBy({
+    by: ['userId'],
+    where: {
+      patentId: { in: patentIds }
+    },
+    _count: {
+      patentId: true
+    }
+  });
+
+  const countMap = new Map();
+  assignmentCounts.forEach((item: any) => {
+    countMap.set(item.userId, item._count.patentId);
+  });
+
+  const titleUsersWithCounts = title.titleUsers.map((tu: any) => ({
+    ...tu,
+    assignedCount: countMap.get(tu.userId) || 0
+  }));
+
   return {
     ...title,
+    titleUsers: titleUsersWithCounts,
     stats: {
       total,
       evaluated,
@@ -382,18 +409,45 @@ export const updateTitle = async (
       where: { titleId: id },
     });
 
-    // Create new users
-    await prisma.titleUser.createMany({
-      data: data.users.map((u) => ({
+    // Resolve users: accept either DB id or userId (username). Map to DB UUIDs.
+    const resolvedUsers: any[] = [];
+    for (const u of data.users) {
+      if (!u.userId) continue;
+      // Try find by id first
+      let userRecord = await prisma.user.findUnique({ where: { id: u.userId } });
+      if (!userRecord) {
+        // Try find by userId (username)
+        userRecord = await prisma.user.findUnique({ where: { userId: u.userId } as any });
+      }
+      if (!userRecord) {
+        throw new AppError(`User not found: ${u.userId}`, 400);
+      }
+
+      const permissionString = (u.permission as any) || '一般';
+      const permissionFlags =
+        permissionString === '管理者'
+          ? { isAdmin: true, isGeneral: false, isViewer: false }
+          : permissionString === '閲覧'
+            ? { isAdmin: false, isGeneral: false, isViewer: true }
+            : { isAdmin: false, isGeneral: true, isViewer: false };
+
+      resolvedUsers.push({
         titleId: id,
-        userId: u.userId,
+        userId: userRecord.id,
         isMainResponsible: u.isMainResponsible || false,
-        permission: (u.permission as any) || '一般',
+        ...permissionFlags,
         evalEmail: u.evalEmail || false,
         confirmEmail: u.confirmEmail || false,
         displayOrder: u.displayOrder || 0,
-      })),
-    });
+      });
+    }
+
+    // Create new users
+    if (resolvedUsers.length > 0) {
+      await prisma.titleUser.createMany({
+        data: resolvedUsers,
+      });
+    }
 
     // Validate only one main responsible
     const mainResponsibles = data.users.filter((u) => u.isMainResponsible);
@@ -555,27 +609,22 @@ export const copyTitle = async (
   // Copy patents
   if (originalTitle.patents.length > 0) {
     await prisma.patent.createMany({
-      data: originalTitle.patents.map((patent) => ({
+      data: originalTitle.patents.map((patent: any) => ({
         titleId: newTitle.id,
-        patentNo: patent.patentNo,
-        applicationNo: patent.applicationNo,
+        documentNum: patent.documentNum,
+        applicationNum: patent.applicationNum,
         applicationDate: patent.applicationDate,
         publicationDate: patent.publicationDate,
-        publicationNo: patent.publicationNo,
-        registrationNo: patent.registrationNo,
-        announcementNo: patent.announcementNo,
-        trialNo: patent.trialNo,
-        caseNo: patent.caseNo,
-        knownDate: patent.knownDate,
-        inventionName: patent.inventionName,
-        applicant: patent.applicant,
-        inventor: patent.inventor,
-        ipc: patent.ipc,
-        abstract: patent.abstract,
-        claims: patent.claims,
-        stage: patent.stage,
-        eventType: patent.eventType,
-        other: patent.other,
+        publicationNum: patent.publicationNum,
+        registrationNum: patent.registrationNum,
+        announcementNum: patent.announcementNum,
+        appealNum: patent.appealNum,
+        inventionTitle: patent.inventionTitle,
+        applicantName: patent.applicantName,
+        fiClassification: patent.fiClassification,
+        statusStage: patent.statusStage,
+        eventDetail: patent.eventDetail,
+        otherInfo: patent.otherInfo,
         documentUrl: patent.documentUrl,
         evaluationStatus: '未評価', // Reset evaluation status
       })),
@@ -610,4 +659,3 @@ export const searchTitles = async (query: string, userId: string, userPermission
 
   return { titles: accessibleTitles };
 };
-

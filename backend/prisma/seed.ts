@@ -79,7 +79,7 @@ const departmentSeeds: DepartmentSeed[] = [
 const userSeeds: UserSeed[] = [
   { userId: 'asakawa', name: 'あさかわ', email: 'asakawa@ipfine.jp', password: '1', departmentName: '法人営業', permission: '管理者' },
   { userId: 'hirakawa', name: 'ひらかわ', email: 'hirakawa@ipfine.jp', password: '1', departmentName: '調査力部所', permission: '管理者' },
-  { userId: 'Nguyen', name: 'グエン・タイ・タン', email: 'nguyen@ipfine.jp', password: '1', departmentName: '調査力部所', permission: '管理者' },
+  { userId: 'nguyen', name: 'グエン・タイ・タン', email: 'Nguyen_TT@ipfine.jp', password: '1', departmentName: '調査力部所', permission: '管理者' },
   { userId: 'm_fmn01', name: '部門責任者 01', email: 'm_fmn01@ipfine.jp', password: '1', departmentName: 'その他開発', permission: '管理者' },
   { userId: 'm_fmn02', name: '部門責任者 02', email: 'm_fmn02@ipfine.jp', password: '1', departmentName: 'その他開発', permission: '管理者' },
   { userId: 'm_lpm01', name: '一般 01', email: 'm_lpm01@ipfine.jp', password: '1', departmentName: '調査力開発', permission: '一般' },
@@ -97,8 +97,7 @@ const userSeeds: UserSeed[] = [
   { userId: 'yamamoto', name: 'やまもと', email: 'yamamoto@ipfine.jp', password: '1', departmentName: '調査力開発', permission: '管理者' },
   { userId: 'yamamoto1', name: 'やまもと１', email: 'yamamoto1@ipfine.jp', password: '1', departmentName: '調査力開発', permission: '管理者' },
   { userId: 'yamamoto2', name: 'やまもと２', email: 'yamamoto2@ipfine.jp', password: '1', departmentName: '調査力開発', permission: '管理者' },
-  { userId: 'tan286', name: 'グエン・タイ・タン', email: 'Nguyen_TT@ipfine.jp', password: '026339229', departmentName: '調査力部所', permission: '管理者' },
-];
+]
 
 const titleSeeds: TitleSeed[] = [
   {
@@ -113,23 +112,13 @@ const titleSeeds: TitleSeed[] = [
   },
   {
     titleNo: '000034',
-    titleName: 'グエン・ダイ・タン',
+    titleName: 'グエン・タイ・タン',
     dataType: '特許',
     markColor: '#dc2626',
     saveDate: '2025/10',
-    createdByUserId: 'Nguyen',
+    createdByUserId: 'nguyen',
     responsibles: [
-      { userId: 'Nguyen', permission: '管理者', isMain: true, evalEmail: true, confirmEmail: true },
-    ],
-  },
-  {
-    titleNo: '000035',
-    titleName: '自動生成タイトル000035',
-    dataType: '特許',
-    saveDate: '2025/10',
-    createdByUserId: 'Nguyen',
-    responsibles: [
-      { userId: 'Nguyen', permission: '管理者', isMain: true, evalEmail: true, confirmEmail: true },
+      { userId: 'nguyen', permission: '管理者', isMain: true, evalEmail: true, confirmEmail: true },
     ],
   },
 ];
@@ -315,8 +304,14 @@ async function main() {
   console.log('🏢 Seeding departments...');
   const departmentMap = new Map<string, string>();
   for (const dept of departmentSeeds) {
-    const created = await prisma.department.create({
-      data: {
+    const created = await prisma.department.upsert({
+      where: { no: dept.no },
+      update: {
+        name: dept.name,
+        abbreviation: dept.abbreviation,
+        displayOrder: dept.displayOrder,
+      },
+      create: {
         no: dept.no,
         name: dept.name,
         abbreviation: dept.abbreviation,
@@ -330,8 +325,16 @@ async function main() {
   const userMap = new Map<string, { id: string; userId: string }>();
   for (const user of userSeeds) {
     const hashed = await bcrypt.hash(user.password, 10);
-    const created = await prisma.user.create({
-      data: {
+    const created = await prisma.user.upsert({
+      where: { userId: user.userId },
+      update: {
+        name: user.name,
+        email: user.email,
+        password: hashed,
+        permission: user.permission,
+        departmentId: user.departmentName ? departmentMap.get(user.departmentName) ?? null : null,
+      },
+      create: {
         userId: user.userId,
         name: user.name,
         email: user.email,
@@ -346,34 +349,53 @@ async function main() {
   console.log('📁 Seeding titles...');
   const titleMap = new Map<string, string>();
   for (const title of titleSeeds) {
-    const createdTitle = await prisma.title.create({
-      data: {
-        titleNo: title.titleNo,
-        titleName: title.titleName,
-        dataType: title.dataType,
-        markColor: title.markColor,
-        saveDate: title.saveDate,
-        createdBy: title.createdByUserId,
-        disallowEvaluation: false,
-        allowEvaluation: true,
-        viewPermission: 'all',
-        editPermission: 'creator',
+    // Find main responsible user
+    const mainResponsible = title.responsibles.find(r => r.isMain) || title.responsibles[0];
+    const mainOwnerUser = mainResponsible ? userMap.get(mainResponsible.userId) : null;
+
+    const titleData = {
+      titleNo: title.titleNo,
+      titleName: title.titleName,
+      dataType: title.dataType,
+      markColor: title.markColor,
+      saveDate: title.saveDate,
+      createdBy: title.createdByUserId,
+      mainOwnerId: mainOwnerUser?.id,
+      disallowEvaluation: false,
+      allowEvaluation: true,
+      viewPermission: 'all',
+      editPermission: 'creator',
+    };
+
+    const titleUsersCreate = title.responsibles.map((responsible, index) => {
+      const user = userMap.get(responsible.userId);
+      if (!user) {
+        throw new Error(`User ${responsible.userId} not found for title ${title.titleNo}`);
+      }
+      const permissionFlags = getPermissionFlags(responsible.permission);
+      return {
+        userId: user.id,
+        isMainResponsible: responsible.isMain ?? index === 0,
+        ...permissionFlags,
+        evalEmail: responsible.evalEmail ?? false,
+        confirmEmail: responsible.confirmEmail ?? false,
+        displayOrder: index,
+      };
+    });
+
+    const createdTitle = await prisma.title.upsert({
+      where: { titleNo: title.titleNo },
+      update: {
+        ...titleData,
         titleUsers: {
-          create: title.responsibles.map((responsible, index) => {
-            const user = userMap.get(responsible.userId);
-            if (!user) {
-              throw new Error(`User ${responsible.userId} not found for title ${title.titleNo}`);
-            }
-            const permissionFlags = getPermissionFlags(responsible.permission);
-            return {
-              userId: user.id,
-              isMainResponsible: responsible.isMain ?? index === 0,
-              ...permissionFlags,
-              evalEmail: responsible.evalEmail ?? false,
-              confirmEmail: responsible.confirmEmail ?? false,
-              displayOrder: index,
-            };
-          }),
+          deleteMany: {},
+          create: titleUsersCreate,
+        },
+      },
+      create: {
+        ...titleData,
+        titleUsers: {
+          create: titleUsersCreate,
         },
       },
     });

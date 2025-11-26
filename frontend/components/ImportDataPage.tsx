@@ -66,11 +66,33 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
             setCsvColumns(csvColumns);
 
             // Parse remaining lines as data
+            // Parse remaining lines as data
             const rows = lines.slice(1).map(line => {
-              const values = line.split(',');
+              // Split by comma, but ignore commas inside double quotes
+              const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+              // Fallback for empty fields or complex cases, use a more robust parser if needed
+              // A simple regex might miss empty fields like ,, so let's use a better approach:
+
+              const parsedValues: string[] = [];
+              let currentVal = '';
+              let inQuotes = false;
+
+              for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                  inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                  parsedValues.push(currentVal.trim().replace(/^"|"$/g, '')); // Remove surrounding quotes
+                  currentVal = '';
+                } else {
+                  currentVal += char;
+                }
+              }
+              parsedValues.push(currentVal.trim().replace(/^"|"$/g, '')); // Push the last value
+
               const row: Record<string, string> = {};
               csvColumns.forEach((col, index) => {
-                row[col] = values[index]?.trim() || '';
+                row[col] = parsedValues[index] || '';
               });
               return row;
             });

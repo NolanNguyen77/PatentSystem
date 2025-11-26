@@ -7,8 +7,10 @@ import {
   updatePatentStatus,
   deletePatent,
   deletePatents,
+  deletePatentsByCompany,
   getPatentsByCompany,
   importPatents,
+  assignPatents,
 } from '../services/patent.service';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { logActivity } from '../middleware/logger.middleware';
@@ -58,7 +60,7 @@ export const createPatentController = async (req: AuthRequest, res: Response): P
       'create',
       'patent',
       patent.id,
-      `Created patent: ${patent.patentNo || patent.id}`,
+      `Created patent: ${patent.documentNum || patent.id}`,
       req.ip,
       patent.titleId
     );
@@ -90,7 +92,7 @@ export const updatePatentController = async (req: AuthRequest, res: Response): P
       'update',
       'patent',
       patent.id,
-      `Updated patent: ${patent.patentNo || patent.id}`,
+      `Updated patent: ${patent.documentNum || patent.id}`,
       req.ip,
       patent.titleId
     );
@@ -209,6 +211,43 @@ export const deletePatentsController = async (req: AuthRequest, res: Response): 
   }
 };
 
+export const deletePatentsByCompanyController = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const companyName = decodeURIComponent(req.params.name);
+    if (!companyName) {
+      res.status(400).json({ error: 'Company name is required' });
+      return;
+    }
+
+    const result = await deletePatentsByCompany(companyName);
+
+    await logActivity(
+      req.user.id,
+      'delete',
+      'patent',
+      'bulk_company',
+      `Deleted ${result.count} patents for ${companyName}`,
+      req.ip
+    );
+
+    res.json({
+      data: {
+        message: result.message,
+        count: result.count
+      },
+    });
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({
+      error: error.message || 'Failed to delete patents by company',
+    });
+  }
+};
+
 export const getPatentsByCompanyController = async (
   req: AuthRequest,
   res: Response
@@ -267,6 +306,61 @@ export const importPatentsController = async (req: AuthRequest, res: Response): 
     console.error('Error in importPatentsController:', error);
     res.status(error.statusCode || 500).json({
       error: error.message || 'Failed to import patents',
+    });
+  }
+};
+
+
+// Assign users to patents (担当者分担)
+export const assignPatentsController = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const { mode, patentIds, userIds } = req.body;
+
+    if (!mode || !['add', 'replace', 'remove'].includes(mode)) {
+      res.status(400).json({ error: 'Invalid mode. Must be add, replace, or remove' });
+      return;
+    }
+
+    if (!patentIds || !Array.isArray(patentIds) || patentIds.length === 0) {
+      res.status(400).json({ error: 'Patent IDs are required' });
+      return;
+    }
+
+    if (mode !== 'remove' && (!userIds || !Array.isArray(userIds) || userIds.length === 0)) {
+      res.status(400).json({ error: 'User IDs are required for add/replace mode' });
+      return;
+    }
+
+    // Call service to assign patents
+    const result = await assignPatents(mode, patentIds, userIds);
+
+    const modeText = mode === 'add' ? '追加' : mode === 'replace' ? '置き換え' : '削除';
+
+    await logActivity(
+      req.user.id,
+      'assign',
+      'patent',
+      'bulk',
+      `${modeText}: ${patentIds.length} patents, ${userIds?.length || 0} users, affected: ${result.count}`,
+      req.ip
+    );
+
+    res.json({
+      data: {
+        message: `担当者の${modeText}が完了しました`,
+        patentCount: patentIds.length,
+        userCount: userIds?.length || 0,
+        affectedCount: result.count
+      },
+    });
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({
+      error: error.message || 'Failed to assign patents',
     });
   }
 };

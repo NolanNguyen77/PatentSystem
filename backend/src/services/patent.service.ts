@@ -120,6 +120,7 @@ export const getPatentsByTitle = async (
   const progressRate = total > 0 ? (evaluated / total) * 100 : 0;
 
   return {
+    titleId,
     patents,
     total,
     evaluatedCount: evaluated,
@@ -302,6 +303,37 @@ export const deletePatents = async (ids: string[]) => {
   return { message: 'Patents deleted successfully', count: result.count };
 };
 
+export const deletePatentsByCompany = async (companyName: string) => {
+  const result = await prisma.$transaction(async (tx) => {
+    // Find all patents for this company
+    const patents = await tx.patent.findMany({
+      where: { applicantName: companyName },
+      select: { id: true }
+    });
+
+    const patentIds = patents.map(p => p.id);
+
+    if (patentIds.length === 0) {
+      return { count: 0 };
+    }
+
+    // Delete related records first
+    await tx.patentClassification.deleteMany({
+      where: { patentId: { in: patentIds } }
+    });
+    await tx.evaluation.deleteMany({
+      where: { patentId: { in: patentIds } }
+    });
+
+    // Delete patents
+    return await tx.patent.deleteMany({
+      where: { applicantName: companyName }
+    });
+  });
+
+  return { message: `Deleted all patents for ${companyName}`, count: result.count };
+};
+
 export const getPatentsByCompany = async (
   companyName: string,
   filters: {
@@ -437,4 +469,68 @@ export const importPatents = async (
     updated,
     skipped
   };
+};
+
+export const assignPatents = async (
+  mode: 'add' | 'replace' | 'remove',
+  patentIds: string[],
+  userIds: string[] = []
+) => {
+  if (patentIds.length === 0) return { count: 0 };
+
+  return await prisma.$transaction(async (tx) => {
+    if (mode === 'remove') {
+      const result = await tx.patentAssignment.deleteMany({
+        where: { patentId: { in: patentIds } }
+      });
+      return { count: result.count };
+    }
+
+    if (mode === 'replace') {
+      // Delete existing assignments for these patents
+      await tx.patentAssignment.deleteMany({
+        where: { patentId: { in: patentIds } }
+      });
+    }
+
+    // Prepare data for creation
+    const dataToCreate: { patentId: string; userId: string }[] = [];
+    for (const patentId of patentIds) {
+      for (const userId of userIds) {
+        dataToCreate.push({ patentId, userId });
+      }
+    }
+
+    if (dataToCreate.length === 0) return { count: 0 };
+
+    if (mode === 'replace') {
+      // We can use createMany since we cleared conflicts
+      const result = await tx.patentAssignment.createMany({
+        data: dataToCreate
+      });
+      return { count: result.count };
+    } else {
+      // mode === 'add'
+      // We need to avoid duplicates.
+      // We can fetch existing assignments for these patents and users
+      const existing = await tx.patentAssignment.findMany({
+        where: {
+          patentId: { in: patentIds },
+          userId: { in: userIds }
+        },
+        select: { patentId: true, userId: true }
+      });
+
+      const existingSet = new Set(existing.map(e => `${e.patentId}:${e.userId}`));
+      const newData = dataToCreate.filter(d => !existingSet.has(`${d.patentId}:${d.userId}`));
+
+      if (newData.length > 0) {
+        const result = await tx.patentAssignment.createMany({
+          data: newData
+        });
+        return { count: result.count };
+      }
+      return { count: 0 };
+    }
+  });
 };

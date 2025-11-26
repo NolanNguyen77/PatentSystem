@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Filter, Download, FileText, Search, ChevronDown, RefreshCw, Settings, Lightbulb } from 'lucide-react';
+import { ArrowLeft, Filter, Download, FileText, Search, ChevronDown, RefreshCw, Settings, Lightbulb, Users } from 'lucide-react';
+import { AssignmentDialog } from './AssignmentDialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
@@ -23,13 +24,14 @@ import { patentAPI } from '../services/api';
 interface TitleDetailPageProps {
   titleNo: string;
   titleName: string;
+  titleId?: string;
   onBack: () => void;
   onViewPatentDetails?: (companyName: string, totalCount: number, titleData?: any) => void;
 }
 
 const years = ['20', '19', '18', '17', '16', '15', '14', '13', '12', '11', '10', '09', '08', '07', '06', '05', '04', '03', '02', '01'];
 
-export function TitleDetailPage({ titleNo, titleName, onBack, onViewPatentDetails }: TitleDetailPageProps) {
+export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPatentDetails }: TitleDetailPageProps) {
   const [patentData, setPatentData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +41,91 @@ export function TitleDetailPage({ titleNo, titleName, onBack, onViewPatentDetail
   const [filterType, setFilterType] = useState('all');
   const [dateFilter, setDateFilter] = useState('application');
   const [periodFilter, setPeriodFilter] = useState('year');
+  const [isAssignmentDialogOpen, setIsAssignmentDialogOpen] = useState(false);
+  const [allPatents, setAllPatents] = useState<any[]>([]);
+  const [resolvedTitleId, setResolvedTitleId] = useState<string | undefined>(titleId);
+
+  // Helper function to get date field based on filter
+  const getDateField = (patent: any): string | null => {
+    const dateFieldMap: { [key: string]: string } = {
+      'application': 'applicationDate',
+      'publication': 'publicationDate',
+      'registration': 'registrationDate',
+      'registration-gazette': 'registrationBulletinDate',
+      'announcement': 'announcementDate',
+      'gazette': 'gazetteBulletinDate'
+    };
+    const field = dateFieldMap[dateFilter];
+    return patent[field] || null;
+  };
+
+  // Helper function to format date based on period filter
+  const formatDateKey = (dateStr: string | null): string => {
+    if (!dateStr) return '日付未設定';
+    
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return '日付未設定';
+
+      if (periodFilter === 'year') {
+        return `'${String(date.getFullYear()).slice(-2)}`; // '24
+      } else if (periodFilter === 'month') {
+        const year = String(date.getFullYear()).slice(-2);
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        return `'${year}/${month}`; // '24/11
+      } else if (periodFilter === 'week') {
+        // ISO week calculation
+        const onejan = new Date(date.getFullYear(), 0, 1);
+        const week = Math.ceil((((date.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7);
+        return String(week).padStart(2, '0'); // 01-52
+      }
+    } catch (e) {
+      return '日付未設定';
+    }
+    return '日付未設定';
+  };
+
+  // Transform patents data based on filters
+  const transformPatentData = (patents: any[]) => {
+    const patentsByCompany = new Map<string, any>();
+    const dateColumns = getDateColumns();
+
+    patents.forEach((patent: any) => {
+      const company = patent.applicant ?? patent.applicantName ?? patent.assignee ?? patent.owner ?? '不明';
+      const dateValue = getDateField(patent);
+      const dateKey = formatDateKey(dateValue);
+
+      if (!patentsByCompany.has(company)) {
+        const counts: { [key: string]: number } = {};
+        dateColumns.forEach(col => counts[col] = 0);
+        counts['日付未設定'] = 0;
+
+        patentsByCompany.set(company, {
+          id: patentsByCompany.size + 1,
+          company: company,
+          total: 0,
+          unEvaluated: 0,
+          counts: counts
+        });
+      }
+
+      const companyData = patentsByCompany.get(company)!;
+      companyData.total += 1;
+      
+      if (patent.evaluationStatus === '未評価') {
+        companyData.unEvaluated += 1;
+      }
+
+      // Increment count for this date key
+      if (companyData.counts[dateKey] !== undefined) {
+        companyData.counts[dateKey] += 1;
+      } else if (dateKey === '日付未設定') {
+        companyData.counts['日付未設定'] += 1;
+      }
+    });
+
+    return Array.from(patentsByCompany.values());
+  };
 
   // Fetch patents from API on component mount
   useEffect(() => {
@@ -48,34 +135,23 @@ export function TitleDetailPage({ titleNo, titleName, onBack, onViewPatentDetail
         console.log('🔄 Fetching patents for title:', titleNo);
         const result = await patentAPI.getByTitle(titleNo);
 
-        // Support different response wrappers: apiCall returns { data: ... }
-        // Backend controllers often return { data: result }, so payload may be nested.
         const payload = result.data?.data ?? result.data ?? result;
 
-        if (payload && payload.patents) {
-          // Transform patents to patent matrix grouped by company
-          const patentsByCompany = new Map<string, any>();
-          
-          const patentsArray = Array.isArray(payload.patents) ? payload.patents : (Array.isArray(payload) ? payload : []);
-          console.debug('TitleDetailPage - patentsArray sample:', patentsArray.slice(0,3));
+        if (payload) {
+          if (payload.titleId) {
+            setResolvedTitleId(payload.titleId);
+          }
 
-          patentsArray.forEach((patent: any) => {
-            // Support multiple possible applicant fields from backend
-            const company = patent.applicant ?? patent.applicantName ?? patent.assignee ?? patent.owner ?? 'Unknown';
-            if (!patentsByCompany.has(company)) {
-              patentsByCompany.set(company, {
-                id: patentsByCompany.size + 1,
-                company: company,
-                total: 0,
-                y20: 0, y19: 0, y18: 0, y17: 0, y16: 0, y15: 0, y14: 0,
-                selected: false
-              });
-            }
-            patentsByCompany.get(company)!.total += 1;
-          });
-          
-          setPatentData(Array.from(patentsByCompany.values()));
-          console.log('✅ Loaded patents:', patentsByCompany.size, 'companies');
+          if (payload.patents) {
+            const patentsArray = Array.isArray(payload.patents) ? payload.patents : (Array.isArray(payload) ? payload : []);
+            setAllPatents(patentsArray);
+            
+            // Transform data based on current filters
+            const transformed = transformPatentData(patentsArray);
+            setPatentData(transformed);
+            
+            console.log('✅ Loaded patents:', transformed.length, 'companies');
+          }
         } else {
           console.warn('⚠️ No patents found', payload);
           setPatentData([]);
@@ -92,6 +168,16 @@ export function TitleDetailPage({ titleNo, titleName, onBack, onViewPatentDetail
       fetchPatentsByTitle();
     }
   }, [titleNo]);
+
+  // Re-transform data when filters change
+  useEffect(() => {
+    if (allPatents.length > 0) {
+      const transformed = transformPatentData(allPatents);
+      setPatentData(transformed);
+    }
+  }, [dateFilter, periodFilter]);
+
+
 
   // Generate columns based on period filter
   const getDateColumns = () => {
@@ -134,25 +220,40 @@ export function TitleDetailPage({ titleNo, titleName, onBack, onViewPatentDetail
           <div className="flex items-center justify-end gap-3">
             <Button
               variant="outline"
+              size="sm"
               onClick={onBack}
-              className="border-orange-500 text-orange-600 hover:bg-orange-50"
+              className="text-sm h-8 transition-all duration-200 text-orange-600 border-orange-200 hover:bg-orange-100 hover:border-orange-300"
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <ArrowLeft className="w-4 h-4 mr-1" />
               タイトル一覧へ戻る
             </Button>
+            <div className="w-px h-5 bg-gray-300"></div>
             <Button
               variant="outline"
-              className="border-orange-500 text-orange-600 hover:bg-orange-50"
+              size="sm"
+              className="text-sm h-8 transition-all duration-200 text-green-600 border-green-200 hover:bg-green-100 hover:border-green-300"
             >
-              <FileText className="w-4 h-4 mr-2" />
+              <FileText className="w-4 h-4 mr-1" />
               出力
             </Button>
+            <div className="w-px h-5 bg-gray-300"></div>
             <Button
               variant="outline"
-              className="border-orange-500 text-orange-600 hover:bg-orange-50"
+              size="sm"
+              className="text-sm h-8 transition-all duration-200 text-blue-600 border-blue-200 hover:bg-blue-100 hover:border-blue-300"
             >
-              <Search className="w-4 h-4 mr-2" />
+              <Search className="w-4 h-4 mr-1" />
               案件の検索
+            </Button>
+            <div className="w-px h-5 bg-gray-300"></div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-sm h-8 transition-all duration-200 text-yellow-600 border-yellow-200 hover:bg-yellow-100 hover:border-yellow-300"
+              onClick={() => setIsAssignmentDialogOpen(true)}
+            >
+              <Users className="w-4 h-4 mr-1" />
+              担当者分担
             </Button>
           </div>
         </div>
@@ -262,7 +363,7 @@ export function TitleDetailPage({ titleNo, titleName, onBack, onViewPatentDetail
             >
               未評価(件)
             </Button>
-            
+
             <div className="h-6 w-px bg-gray-300 mx-2"></div>
 
             {/* Group 2: Date Filter */}
@@ -314,7 +415,7 @@ export function TitleDetailPage({ titleNo, titleName, onBack, onViewPatentDetail
             >
               公報発行日
             </Button>
-            
+
             <div className="h-6 w-px bg-gray-300 mx-2"></div>
 
             {/* Group 3: Period Filter */}
@@ -356,14 +457,14 @@ export function TitleDetailPage({ titleNo, titleName, onBack, onViewPatentDetail
               <TableHeader>
                 <TableRow className="bg-gray-100">
                   <TableHead className="text-center w-12 sticky left-0 bg-gray-100 z-10 border-r">
-                    <input 
-                      type="checkbox" 
-                      className="w-4 h-4 cursor-pointer" 
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 cursor-pointer"
                       checked={selectedRows.length === patentData.length}
                       onChange={handleSelectAll}
                     />
                   </TableHead>
-                  <TableHead className="min-w-[300px] bg-gray-100 border-r-4 border-r-gray-500" style={{position: 'sticky', left: '48px', zIndex: 10}}>
+                  <TableHead className="min-w-[300px] bg-gray-100 border-r-4 border-r-gray-500" style={{ position: 'sticky', left: '48px', zIndex: 10 }}>
                     出願人・権利者名
                   </TableHead>
                   <TableHead className="text-center w-20 bg-gray-100 border-r">
@@ -385,30 +486,34 @@ export function TitleDetailPage({ titleNo, titleName, onBack, onViewPatentDetail
                   <TableCell className="sticky left-0 bg-blue-50 text-center border-r">
                     <input type="checkbox" className="w-4 h-4" disabled />
                   </TableCell>
-                  <TableCell className="bg-blue-50 border-r-4 border-r-gray-500" style={{position: 'sticky', left: '48px'}}>
-                    <span className="text-sm">全件</span>
+                  <TableCell className="bg-blue-50 border-r-4 border-r-gray-500" style={{ position: 'sticky', left: '48px' }}>
+                    <span className="text-sm font-semibold">全件</span>
                   </TableCell>
                   <TableCell className="bg-blue-50 text-center border-r">
-                    <button className="text-blue-600 hover:underline text-sm">
-                      405
-                    </button>
+                    <span className="text-sm font-semibold text-blue-600">
+                      {allPatents.length}
+                    </span>
                   </TableCell>
                   <TableCell className="bg-blue-50 text-center border-r">
-                    <span className="text-sm">171</span>
+                    <span className="text-sm font-semibold">{allPatents.filter(p => p.evaluationStatus === '未評価').length}</span>
                   </TableCell>
-                  {dateColumns.map((year) => (
-                    <TableCell key={year} className="bg-blue-50 text-center border-r">
-                      <span className="text-xs">-</span>
-                    </TableCell>
-                  ))}
+                  {dateColumns.map((col) => {
+                    const total = patentData.reduce((sum, item) => sum + (item.counts?.[col] || 0), 0);
+                    return (
+                      <TableCell key={col} className="bg-blue-50 text-center border-r">
+                        <span className={`text-xs font-semibold ${total > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
+                          {total > 0 ? total : '-'}
+                        </span>
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
 
                 {patentData.map((item) => (
                   <TableRow
                     key={item.id}
-                    className={`hover:bg-orange-50 ${
-                      selectedRows.includes(item.id) ? 'bg-blue-50' : ''
-                    }`}
+                    className={`hover:bg-orange-50 ${selectedRows.includes(item.id) ? 'bg-blue-50' : ''
+                      }`}
                   >
                     <TableCell className="sticky left-0 bg-white text-center border-r">
                       <input
@@ -418,11 +523,11 @@ export function TitleDetailPage({ titleNo, titleName, onBack, onViewPatentDetail
                         onChange={() => handleRowSelect(item.id)}
                       />
                     </TableCell>
-                    <TableCell className="bg-white border-r-4 border-r-gray-500" style={{position: 'sticky', left: '48px'}}>
+                    <TableCell className="bg-white border-r-4 border-r-gray-500" style={{ position: 'sticky', left: '48px' }}>
                       <span className="text-sm">{item.company}</span>
                     </TableCell>
                     <TableCell className="bg-white text-center border-r">
-                      <button 
+                      <button
                         className="text-blue-600 hover:underline text-sm"
                         onClick={() => onViewPatentDetails?.(item.company, item.total, { titleNo, titleName })}
                       >
@@ -430,13 +535,18 @@ export function TitleDetailPage({ titleNo, titleName, onBack, onViewPatentDetail
                       </button>
                     </TableCell>
                     <TableCell className="bg-white text-center border-r">
-                      <span className="text-sm">0</span>
+                      <span className="text-sm">{item.unEvaluated || 0}</span>
                     </TableCell>
-                    {dateColumns.map((year, index) => (
-                      <TableCell key={year} className="text-center border-r">
-                        <span className="text-xs text-gray-400">-</span>
-                      </TableCell>
-                    ))}
+                    {dateColumns.map((col) => {
+                      const count = item.counts?.[col] || 0;
+                      return (
+                        <TableCell key={col} className="text-center border-r">
+                          <span className={`text-xs ${count > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
+                            {count > 0 ? count : '-'}
+                          </span>
+                        </TableCell>
+                      );
+                    })}
                   </TableRow>
                 ))}
               </TableBody>
@@ -446,9 +556,9 @@ export function TitleDetailPage({ titleNo, titleName, onBack, onViewPatentDetail
           {/* Table Footer */}
           <div className="border-t px-4 py-3 bg-gray-50">
             <div className="flex items-center justify-between text-sm text-gray-600">
-              <div>表示: {patentData.length} 件 / 全 405 件</div>
+              <div>表示: {patentData.length} 件 / 全 {allPatents.length} 件</div>
               <div className="flex items-center gap-2">
-                <span>ページ 1 / 21</span>
+                <span>ページ 1 / {Math.ceil(patentData.length / 20)}</span>
                 <div className="flex gap-1">
                   <Button size="sm" variant="outline" className="h-7 w-7 p-0">
                     «
@@ -468,6 +578,17 @@ export function TitleDetailPage({ titleNo, titleName, onBack, onViewPatentDetail
           </div>
         </div>
       </div>
+
+      {/* AssignmentDialog */}
+      <AssignmentDialog
+        isOpen={isAssignmentDialogOpen}
+        onClose={() => setIsAssignmentDialogOpen(false)}
+        titleNo={titleNo}
+        titleName={titleName}
+        titleId={resolvedTitleId || titleId}
+        patents={allPatents}
+        hideRangeSelector={true}
+      />
     </div>
   );
 }

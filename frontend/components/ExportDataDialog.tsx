@@ -3,12 +3,33 @@ import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { ScrollArea } from './ui/scroll-area';
 import { Checkbox } from './ui/checkbox';
-import { X } from 'lucide-react';
+
+
+interface Patent {
+  id: string;
+  documentNum?: string;
+  applicationNum?: string;
+  applicationDate?: string;
+  publicationDate?: string;
+  inventionTitle?: string;
+  applicantName?: string;
+  fiClassification?: string;
+  publicationNum?: string;
+  announcementNum?: string;
+  registrationNum?: string;
+  appealNum?: string;
+  otherInfo?: string;
+  statusStage?: string;
+  eventDetail?: string;
+  documentUrl?: string;
+  evaluationStatus?: string;
+}
 
 interface ExportDataDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   totalCount?: number;
+  patents?: Patent[];
 }
 
 // Available fields for export
@@ -42,43 +63,66 @@ const defaultOutputFields = [
   'ステージ'
 ];
 
-export function ExportDataDialog({ open, onOpenChange, totalCount = 404 }: ExportDataDialogProps) {
-  const [availableFields, setAvailableFields] = useState<string[]>(allFields);
+// Field mapping from Japanese to English keys
+const fieldMapping: Record<string, keyof Patent> = {
+  '文献番号': 'documentNum',
+  '出願番号': 'applicationNum',
+  '出願日': 'applicationDate',
+  '公知日': 'publicationDate',
+  '発明の名称': 'inventionTitle',
+  '出願人/権利者': 'applicantName',
+  'FI': 'fiClassification',
+  '公開番号': 'publicationNum',
+  '公告番号': 'announcementNum',
+  '登録番号': 'registrationNum',
+  '審判番号': 'appealNum',
+  'その他': 'otherInfo',
+  'ステージ': 'statusStage',
+  'イベント詳細': 'eventDetail',
+  '文献URL': 'documentUrl',
+};
+
+export function ExportDataDialog({ open, onOpenChange, totalCount = 0, patents = [] }: ExportDataDialogProps) {
+  // 全書誌: fields not yet added to output
+  // 出力書誌: fields to be exported
+  const [availableFields, setAvailableFields] = useState<string[]>(
+    allFields.filter(f => !defaultOutputFields.includes(f))
+  );
   const [outputFields, setOutputFields] = useState<string[]>(defaultOutputFields);
-  const [selectedAvailable, setSelectedAvailable] = useState<string[]>([]);
-  const [selectedOutput, setSelectedOutput] = useState<string[]>([]);
+  const [selectedAvailableField, setSelectedAvailableField] = useState<string | null>(null);
+  const [selectedOutputField, setSelectedOutputField] = useState<string | null>(null);
   const [exportRepresentative, setExportRepresentative] = useState(false);
   const [exportEvaluation, setExportEvaluation] = useState(true);
 
-  const handleAddFields = () => {
-    if (selectedAvailable.length === 0) return;
-
-    setOutputFields([...outputFields, ...selectedAvailable]);
-    setAvailableFields(availableFields.filter(f => !selectedAvailable.includes(f)));
-    setSelectedAvailable([]);
+  // Select item in 全書誌
+  const handleSelectAvailableField = (field: string) => {
+    setSelectedAvailableField(prev => prev === field ? null : field);
   };
 
-  const handleRemoveFields = () => {
-    if (selectedOutput.length === 0) {
-      // If nothing is selected, remove the last item from output fields
-      if (outputFields.length > 0) {
-        const lastField = outputFields[outputFields.length - 1];
-        setAvailableFields([...availableFields, lastField]);
-        setOutputFields(outputFields.slice(0, -1));
-      }
-      return;
-    }
+  // Select item in 出力書誌
+  const handleSelectOutputField = (field: string) => {
+    setSelectedOutputField(prev => prev === field ? null : field);
+  };
 
-    setAvailableFields([...availableFields, ...selectedOutput]);
-    setOutputFields(outputFields.filter(f => !selectedOutput.includes(f)));
-    // Don't clear selection so users can keep clicking delete
-    // setSelectedOutput([]);
+  // Button 追加→: move selected from 全書誌 to 出力書誌
+  const handleAddField = () => {
+    if (!selectedAvailableField) return;
+    setOutputFields(prev => [...prev, selectedAvailableField]);
+    setAvailableFields(prev => prev.filter(f => f !== selectedAvailableField));
+    setSelectedAvailableField(null);
+  };
+
+  // Button ←削除: move selected from 出力書誌 back to 全書誌
+  const handleRemoveField = () => {
+    if (!selectedOutputField) return;
+    setAvailableFields(prev => [...prev, selectedOutputField]);
+    setOutputFields(prev => prev.filter(f => f !== selectedOutputField));
+    setSelectedOutputField(null);
   };
 
   const handleMoveUp = () => {
-    if (selectedOutput.length !== 1) return;
-
-    const index = outputFields.indexOf(selectedOutput[0]);
+    if (!selectedOutputField) return;
+    const index = outputFields.indexOf(selectedOutputField);
     if (index > 0) {
       const newFields = [...outputFields];
       [newFields[index - 1], newFields[index]] = [newFields[index], newFields[index - 1]];
@@ -87,9 +131,8 @@ export function ExportDataDialog({ open, onOpenChange, totalCount = 404 }: Expor
   };
 
   const handleMoveDown = () => {
-    if (selectedOutput.length !== 1) return;
-
-    const index = outputFields.indexOf(selectedOutput[0]);
+    if (!selectedOutputField) return;
+    const index = outputFields.indexOf(selectedOutputField);
     if (index < outputFields.length - 1) {
       const newFields = [...outputFields];
       [newFields[index], newFields[index + 1]] = [newFields[index + 1], newFields[index]];
@@ -98,9 +141,47 @@ export function ExportDataDialog({ open, onOpenChange, totalCount = 404 }: Expor
   };
 
   const handleExport = () => {
-    console.log('Exporting fields:', outputFields);
-    console.log('Export representative:', exportRepresentative);
-    console.log('Export evaluation:', exportEvaluation);
+    if (patents.length === 0) {
+      alert('出力するデータがありません');
+      return;
+    }
+
+    // Create CSV content with BOM for Excel compatibility
+    const BOM = '\uFEFF';
+    
+    // Header row
+    const headers = outputFields.join(',');
+    
+    // Data rows
+    const rows = patents.map(patent => {
+      return outputFields.map(field => {
+        const key = fieldMapping[field];
+        let value = key ? (patent[key] || '') : '';
+        // Escape quotes and wrap in quotes if contains comma or newline
+        if (typeof value === 'string') {
+          value = value.replace(/"/g, '""');
+          if (value.includes(',') || value.includes('\n') || value.includes('"')) {
+            value = `"${value}"`;
+          }
+        }
+        return value;
+      }).join(',');
+    });
+    
+    const csvContent = BOM + headers + '\n' + rows.join('\n');
+    
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `patent_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    console.log('Exported', patents.length, 'patents with fields:', outputFields);
     onOpenChange(false);
   };
 
@@ -108,19 +189,9 @@ export function ExportDataDialog({ open, onOpenChange, totalCount = 404 }: Expor
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
         <DialogHeader className="border-b pb-4 px-6 pt-6">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
-              保存データExcel出力
-            </DialogTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-              className="h-8 w-8 p-0 -mr-2"
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
+          <DialogTitle className="text-xl bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
+            保存データExcel出力
+          </DialogTitle>
           <DialogDescription className="sr-only">
             保存データをExcelファイルとして出力します
           </DialogDescription>
@@ -135,25 +206,22 @@ export function ExportDataDialog({ open, onOpenChange, totalCount = 404 }: Expor
               <span className="text-sm">件</span>
             </div>
 
-            {/* Two column selector */}
+            {/* Two column selector - Original layout */}
             <div className="grid grid-cols-[1fr_auto_1fr_auto] gap-3 items-start">
-              {/* Left column - Available fields */}
+              {/* Left column - Available fields (全書誌) */}
               <div>
                 <div className="text-center mb-2">全書誌</div>
-                <ScrollArea className="h-[320px] border-2 border-gray-300 rounded">
+                <ScrollArea className="h-[320px] border-2 border-gray-300 rounded bg-white">
                   <div className="p-1">
                     {availableFields.map((field) => (
                       <div
                         key={field}
-                        onClick={() => {
-                          if (selectedAvailable.includes(field)) {
-                            setSelectedAvailable(selectedAvailable.filter(f => f !== field));
-                          } else {
-                            setSelectedAvailable([...selectedAvailable, field]);
-                          }
-                        }}
-                        className={`px-2 py-1 text-sm cursor-pointer hover:bg-gray-100 ${selectedAvailable.includes(field) ? 'bg-blue-100' : ''
-                          }`}
+                        onClick={() => handleSelectAvailableField(field)}
+                        className={`px-2 py-1.5 text-sm cursor-pointer rounded select-none ${
+                          selectedAvailableField === field 
+                            ? 'bg-blue-500 text-white' 
+                            : 'hover:bg-blue-50'
+                        }`}
                       >
                         {field}
                       </div>
@@ -167,8 +235,8 @@ export function ExportDataDialog({ open, onOpenChange, totalCount = 404 }: Expor
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={handleAddFields}
-                  disabled={selectedAvailable.length === 0}
+                  onClick={handleAddField}
+                  disabled={!selectedAvailableField}
                   className="whitespace-nowrap"
                 >
                   追加→
@@ -176,30 +244,28 @@ export function ExportDataDialog({ open, onOpenChange, totalCount = 404 }: Expor
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={handleRemoveFields}
+                  onClick={handleRemoveField}
+                  disabled={!selectedOutputField}
                   className="whitespace-nowrap"
                 >
                   ←削除
                 </Button>
               </div>
 
-              {/* Right column - Output fields */}
+              {/* Right column - Output fields (出力書誌) */}
               <div>
                 <div className="text-center mb-2">出力書誌</div>
-                <ScrollArea className="h-[320px] border-2 border-gray-300 rounded">
+                <ScrollArea className="h-[320px] border-2 border-gray-300 rounded bg-white">
                   <div className="p-1">
                     {outputFields.map((field) => (
                       <div
                         key={field}
-                        onClick={() => {
-                          if (selectedOutput.includes(field)) {
-                            setSelectedOutput([]);
-                          } else {
-                            setSelectedOutput([field]);
-                          }
-                        }}
-                        className={`px-2 py-1 text-sm cursor-pointer hover:bg-gray-100 ${selectedOutput.includes(field) ? 'bg-blue-100' : ''
-                          }`}
+                        onClick={() => handleSelectOutputField(field)}
+                        className={`px-2 py-1.5 text-sm cursor-pointer rounded select-none ${
+                          selectedOutputField === field 
+                            ? 'bg-blue-500 text-white' 
+                            : 'hover:bg-blue-50'
+                        }`}
                       >
                         {field}
                       </div>
@@ -208,13 +274,13 @@ export function ExportDataDialog({ open, onOpenChange, totalCount = 404 }: Expor
                 </ScrollArea>
               </div>
 
-              {/* Right side buttons */}
+              {/* Right side buttons - Move order */}
               <div className="flex flex-col gap-2 justify-center pt-8">
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={handleMoveUp}
-                  disabled={selectedOutput.length !== 1 || outputFields.indexOf(selectedOutput[0]) === 0}
+                  disabled={!selectedOutputField || outputFields.indexOf(selectedOutputField) === 0}
                   className="whitespace-nowrap"
                 >
                   ▲上に移動
@@ -223,7 +289,7 @@ export function ExportDataDialog({ open, onOpenChange, totalCount = 404 }: Expor
                   size="sm"
                   variant="outline"
                   onClick={handleMoveDown}
-                  disabled={selectedOutput.length !== 1 || outputFields.indexOf(selectedOutput[0]) === outputFields.length - 1}
+                  disabled={!selectedOutputField || outputFields.indexOf(selectedOutputField) === outputFields.length - 1}
                   className="whitespace-nowrap"
                 >
                   ▼下に移動

@@ -18,6 +18,9 @@ import { patentAPI } from '../services/api';
 interface PatentDetailListPageProps {
   titleNo: string;
   titleName: string;
+  titleId?: string;
+  responsible: string;
+  responsibleId: string;
   companyName: string;
   totalCount: number;
   onBack: () => void;
@@ -46,6 +49,9 @@ interface Patent {
 export function PatentDetailListPage({
   titleNo,
   titleName,
+  titleId,
+  responsible,
+  responsibleId,
   companyName,
   totalCount,
   onBack
@@ -70,6 +76,8 @@ export function PatentDetailListPage({
     }
   }>({});
 
+  const [resolvedTitleId, setResolvedTitleId] = useState<string | undefined>(titleId);
+
   // Fetch patents from API
   useEffect(() => {
     const fetchPatents = async () => {
@@ -89,14 +97,18 @@ export function PatentDetailListPage({
           const patentList = Array.isArray(payload.patents) ? payload.patents : (Array.isArray(payload) ? payload : (payload.data ?? []));
           setPatents(patentList);
 
+          // Extract titleId from first patent if available and not already set
+          if (patentList.length > 0 && patentList[0].title?.id) {
+            console.log('✅ Resolved titleId from patents:', patentList[0].title.id);
+            setResolvedTitleId(patentList[0].title.id);
+          }
+
           // Initialize patent states
           const initialStates: { [key: string]: any } = {};
           patentList.forEach((patent: Patent) => {
             initialStates[patent.id] = {
               topEvaluation: '未評価',
               bottomEvaluation: patent.evaluationStatus || '未評価',
-              abstract: patent.abstract || '',
-              claims: patent.claims || '',
               reasonInput: patent.otherInfo || '',
               toTrash: false
             };
@@ -120,6 +132,20 @@ export function PatentDetailListPage({
       fetchPatents();
     }
   }, [companyName, titleNo]);
+
+  // ... (rest of component)
+
+  {/* Assignment Dialog */ }
+  <AssignmentDialog
+    isOpen={isAssignmentDialogOpen}
+    onClose={() => setIsAssignmentDialogOpen(false)}
+    titleNo={titleNo}
+    titleName={titleName}
+    titleId={resolvedTitleId || titleId}
+    patents={patents}
+    responsible={responsible}
+    responsibleId={responsibleId}
+  />
 
   const updatePatentState = (id: string, field: string, value: any) => {
     setPatentStates(prev => ({
@@ -232,9 +258,9 @@ export function PatentDetailListPage({
             <Button
               variant={selectedIds.size > 0 ? "default" : "outline"}
               size="sm"
-              className={`text-sm h-8 ${selectedIds.size > 0
-                ? "bg-red-600 hover:bg-red-700 text-white border-transparent"
-                : "text-red-600 border-red-200 hover:bg-red-50"
+              className={`text-sm h-8 transition-all duration-200 ${selectedIds.size > 0
+                ? "bg-red-600 hover:bg-red-700 hover:shadow-md text-white border-transparent"
+                : "text-red-600 border-red-200 hover:bg-red-100 hover:border-red-300"
                 }`}
               onClick={handleDelete}
               disabled={selectedIds.size === 0 || isDeleting}
@@ -248,7 +274,7 @@ export function PatentDetailListPage({
             <Button
               variant="outline"
               size="sm"
-              className="text-sm h-8 text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
+              className="text-sm h-8 transition-all duration-200 text-green-600 border-green-200 hover:bg-green-100 hover:border-green-300"
               onClick={() => setIsExportDialogOpen(true)}
             >
               <FileText className="w-4 h-4 mr-1" />
@@ -258,7 +284,7 @@ export function PatentDetailListPage({
             <Button
               variant="outline"
               size="sm"
-              className="text-sm h-8 text-yellow-600 border-yellow-200 hover:bg-yellow-50 hover:text-yellow-700"
+              className="text-sm h-8 transition-all duration-200 text-yellow-600 border-yellow-200 hover:bg-yellow-100 hover:border-yellow-300"
               onClick={() => setIsAssignmentDialogOpen(true)}
             >
               <Users className="w-4 h-4 mr-1" />
@@ -268,13 +294,13 @@ export function PatentDetailListPage({
             <Button
               variant="outline"
               size="sm"
-              className="text-sm h-8 text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+              className="text-sm h-8 transition-all duration-200 text-blue-600 border-blue-200 hover:bg-blue-100 hover:border-blue-300"
             >
               <RefreshCw className="w-4 h-4 mr-1" />
-              筆新に更新
+              更新
             </Button>
             <div className="w-px h-5 bg-gray-300"></div>
-            <Button size="sm" className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white text-sm h-8 border-0">
+            <Button size="sm" className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 hover:shadow-md text-white text-sm h-8 border-0 transition-all duration-200">
               <Save className="w-4 h-4 mr-1" />
               保存
             </Button>
@@ -288,106 +314,113 @@ export function PatentDetailListPage({
           {patents.map((patent) => (
             <div key={patent.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
               <div className="flex gap-4 p-4">
-                {/* Left Panel - Patent Info */}
-                <div className="w-[280px] border border-gray-200 rounded-lg bg-gray-50 flex-shrink-0 overflow-hidden">
-                  <div className="bg-gradient-to-r from-orange-500 to-yellow-500 px-4 py-2 text-white text-sm flex items-center gap-2">
+                {/* Left Panel - Patent Info - Fixed height */}
+                <div className="w-[350px] min-w-[350px] max-w-[350px] h-[600px] border border-gray-200 rounded-lg bg-white flex-shrink-0 overflow-hidden flex flex-col">
+                  <div className="bg-gradient-to-r from-orange-500 to-yellow-500 px-4 py-2 text-white text-sm flex items-center gap-2 flex-shrink-0">
                     <Checkbox
                       checked={selectedIds.has(patent.id)}
                       onCheckedChange={(checked: boolean) => handleSelectOne(patent.id, checked)}
                     />
                     特許情報
                   </div>
-                  <div className="p-4 space-y-3 text-sm">
-                    <div>
-                      <div className="text-gray-600 mb-1">【文献番号】</div>
-                      <div className="text-gray-800">{patent.documentNum || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 mb-1">【出願番号】</div>
-                      <div className="text-gray-800">{patent.applicationNum || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 mb-1">【出願日】</div>
-                      <div className="text-gray-800">{patent.applicationDate || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 mb-1">【公知日】</div>
-                      <div className="text-gray-800">{patent.publicationDate || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 mb-1">【発明の名称】</div>
-                      <div className="text-gray-800">{patent.inventionTitle || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 mb-1">【出願人/権利者】</div>
-                      <div className="text-gray-800">{patent.applicantName || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 mb-1">【FI】</div>
-                      <div className="text-gray-800">{patent.fiClassification || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 mb-1">【公開番号】</div>
-                      <div className="text-gray-800">{patent.publicationNum || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 mb-1">【公告番号】</div>
-                      <div className="text-gray-800">{patent.announcementNum || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 mb-1">【登録番号】</div>
-                      <div className="text-gray-800">{patent.registrationNum || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 mb-1">【審判番号】</div>
-                      <div className="text-gray-800">{patent.appealNum || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 mb-1">【その他】</div>
-                      <div className="text-gray-800">{patent.otherInfo || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 mb-1">【ステージ】</div>
-                      <div className="text-gray-800">{patent.statusStage || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 mb-1">【イベント詳細】</div>
-                      <div className="text-gray-800">{patent.eventDetail || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 mb-1">【文献URL】</div>
-                      <div className="text-gray-800">
-                        {patent.documentUrl ? (
-                          <a 
-                            href={patent.documentUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline break-all"
-                          >
-                            {patent.documentUrl}
-                          </a>
-                        ) : (
-                          '-'
-                        )}
+                  <div className="text-sm overflow-y-auto flex-1 border-t border-gray-200">
+                    {[
+                      { label: '【文献番号】', value: patent.documentNum, bold: true },
+                      { label: '【出願番号】', value: patent.applicationNum },
+                      { label: '【出願日】', value: patent.applicationDate },
+                      { label: '【公知日】', value: patent.publicationDate },
+                      { label: '【出願人/権利者】', value: patent.applicantName },
+                      { label: '【公開番号】', value: patent.publicationNum },
+                      { label: '【公告番号】', value: patent.announcementNum },
+                      { label: '【登録番号】', value: patent.registrationNum },
+                      { label: '【審判番号】', value: patent.appealNum },
+                      { label: '【その他】', value: patent.otherInfo },
+                      { label: '【ステージ】', value: patent.statusStage },
+                      { label: '【イベント詳細】', value: patent.eventDetail },
+                    ].map((item, index) => (
+                      <div key={index} className="flex border-b border-gray-100 min-h-[32px]">
+                        <div className="w-[120px] bg-gray-50 p-2 text-xs text-gray-700 font-bold border-r border-gray-100 flex items-center flex-shrink-0">
+                          {item.label}
+                        </div>
+                        <div className={`p-2 text-gray-900 flex-1 break-all text-xs ${item.bold ? 'font-medium' : ''}`}>
+                          {item.value || '-'}
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="flex border-b border-gray-100">
+                      <div className="w-[120px] bg-gray-50 p-2 text-xs text-gray-700 font-bold border-r border-gray-100 flex items-start flex-shrink-0">
+                        【発明の名称】
+                      </div>
+                      <div className="p-2 flex-1">
+                        <div
+                          className="max-h-[50px] overflow-y-auto text-xs leading-tight"
+                          style={{ scrollbarWidth: 'thin' }}
+                        >
+                          {patent.inventionTitle ? (
+                            patent.inventionTitle.split('、').reduce((acc: string[][], word, index) => {
+                              const lineIndex = Math.floor(index / 3);
+                              if (!acc[lineIndex]) acc[lineIndex] = [];
+                              acc[lineIndex].push(word.trim());
+                              return acc;
+                            }, []).map((line, i) => (
+                              <div key={i}>{line.join('、')}</div>
+                            ))
+                          ) : '-'}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Detail Button */}
-                    <div className="pt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full text-sm"
-                        onClick={() => handleDetailClick(patent.id)}
-                      >
-                        詳細
-                      </Button>
+                    <div className="flex border-b border-gray-100">
+                      <div className="w-[120px] bg-gray-50 p-2 text-xs text-gray-700 font-bold border-r border-gray-100 flex items-start flex-shrink-0">
+                        【FI】
+                      </div>
+                      <div className="p-2 flex-1">
+                        <div
+                          className="max-h-[50px] overflow-y-auto text-xs leading-tight"
+                          style={{ scrollbarWidth: 'thin' }}
+                        >
+                          {patent.fiClassification ? (
+                            patent.fiClassification.split(',').reduce((acc: string[][], fi, index) => {
+                              const lineIndex = Math.floor(index / 4);
+                              if (!acc[lineIndex]) acc[lineIndex] = [];
+                              acc[lineIndex].push(fi.trim());
+                              return acc;
+                            }, []).map((line, i) => (
+                              <div key={i}>{line.join(', ')}</div>
+                            ))
+                          ) : '-'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex min-h-[32px]">
+                      <div className="w-[120px] bg-gray-50 p-2 text-xs text-gray-700 font-bold border-r border-gray-100 flex items-center flex-shrink-0">
+                        【文献URL】
+                      </div>
+                      <div className="p-2 text-gray-900 flex-1 flex items-center">
+                        {patent.documentUrl ? (
+                          <a
+                            href={patent.documentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 transition-colors shadow-sm"
+                          >
+                            J-PlatPat
+                          </a>
+                        ) : (
+                          <span className="text-xs">-</span>
+                        )}
+                      </div>
                     </div>
                   </div>
+
+
                 </div>
 
-                {/* Right Panel - Details */}
-                <div className="flex-1 space-y-4">
+
+                {/* Right Panel - Details - Same height as left panel */}
+                <div className="flex-1 space-y-4 flex flex-col h-[600px]">
                   {/* Two Column Section */}
                   <div className="grid grid-cols-2 gap-4">
                     {/* Left Column */}
@@ -395,9 +428,9 @@ export function PatentDetailListPage({
                       <div className="space-y-2">
                         <div className="text-sm text-gray-600">【出願人/権利者】</div>
                         <div className="text-sm mb-3">{patent.applicantName || '-'}</div>
-                        <div className="text-sm text-gray-600 mb-1">【FI】</div>
-                        <div className="text-sm bg-gray-50 p-2 rounded min-h-[120px] overflow-auto">
-                          {patent.fiClassification || '-'}
+                        <div className="text-sm text-gray-600 mb-1">【要約】</div>
+                        <div className="text-sm bg-gray-50 p-2 rounded min-h-[120px] overflow-auto border border-gray-100">
+                          -
                         </div>
                       </div>
                     </div>
@@ -408,21 +441,18 @@ export function PatentDetailListPage({
                         <div className="text-sm text-gray-600">【発明の名称】</div>
                         <div className="text-sm mb-3">{patent.inventionTitle || '-'}</div>
                         <div className="text-sm text-gray-600 mb-1">【その他】</div>
-                        <Textarea
-                          value={patentStates[patent.id].reasonInput}
-                          onChange={(e) => updatePatentState(patent.id, 'reasonInput', e.target.value)}
-                          className="min-h-[120px] w-full resize-none text-sm bg-white"
-                          placeholder=""
-                        />
+                        <div className="text-sm bg-gray-50 p-2 rounded min-h-[120px] overflow-auto border border-gray-100 whitespace-pre-wrap">
+                          {patent.otherInfo || '-'}
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Evaluation Section */}
-                  <div className="border border-orange-200 rounded-lg p-4 space-y-3 bg-orange-50/40">
-                    <div className="text-sm">【評価】</div>
+                  {/* Evaluation Section - flex-1 to fill remaining space */}
+                  <div className="border border-orange-200 rounded-lg p-4 space-y-3 bg-orange-50/40 flex-1 flex flex-col">
+                    <div className="text-sm font-medium">【評価】</div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-4">
                       <Button
                         variant="link"
                         size="sm"
@@ -440,12 +470,12 @@ export function PatentDetailListPage({
                       </Button>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                       <Select
                         value={patentStates[patent.id].bottomEvaluation}
                         onValueChange={(value: string) => updatePatentState(patent.id, 'bottomEvaluation', value)}
                       >
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-[240px]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -468,12 +498,12 @@ export function PatentDetailListPage({
                       </div>
                     </div>
 
-                    <div>
-                      <div className="text-sm text-gray-600 mb-1">【理由入力ー】</div>
+                    <div className="flex-1 flex flex-col">
+                      <div className="text-sm text-gray-600 mb-1">【理由入力】</div>
                       <Textarea
                         value={patentStates[patent.id].reasonInput}
                         onChange={(e) => updatePatentState(patent.id, 'reasonInput', e.target.value)}
-                        className="min-h-[100px] w-full resize-none text-sm"
+                        className="flex-1 min-h-[80px] w-full resize-none text-sm"
                         placeholder=""
                       />
                     </div>
@@ -483,12 +513,21 @@ export function PatentDetailListPage({
             </div>
           ))}
         </div>
+
+
       </div>
 
       {/* Assignment Dialog */}
       <AssignmentDialog
         isOpen={isAssignmentDialogOpen}
         onClose={() => setIsAssignmentDialogOpen(false)}
+        titleNo={titleNo}
+        titleName={titleName}
+        titleId={resolvedTitleId || titleId}
+        patents={selectedIds.size > 0 ? patents.filter(p => selectedIds.has(p.id)) : patents}
+        responsible={responsible}
+        responsibleId={responsibleId}
+        hideRangeSelector={selectedIds.size > 0}
       />
 
       {/* Detail Dialog */}
@@ -503,7 +542,8 @@ export function PatentDetailListPage({
         open={isExportDialogOpen}
         onOpenChange={setIsExportDialogOpen}
         totalCount={patents.length}
+        patents={patents}
       />
-    </div>
+    </div >
   );
 }

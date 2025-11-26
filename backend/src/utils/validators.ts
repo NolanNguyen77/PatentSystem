@@ -30,7 +30,7 @@ const titleBodySchema = z.object({
       evalEmail: z.boolean().default(false),
       confirmEmail: z.boolean().default(false),
       displayOrder: z.number().default(0),
-    })
+    }).strip()
   ).optional(),
 });
 
@@ -43,7 +43,9 @@ export const createTitleSchema = z.object({
 export const updateTitleSchema = z.object({
   body: titleBodySchema.partial(),
   query: z.object({}).strict().optional(),
-  params: z.object({}).strict().optional(),
+  params: z.object({
+    id: z.string(),
+  }),
 });
 
 const patentBodySchema = z.object({
@@ -80,7 +82,9 @@ export const createPatentSchema = z.object({
 export const updatePatentSchema = z.object({
   body: patentBodySchema.partial().omit({ titleId: true }),
   query: z.object({}).strict().optional(),
-  params: z.object({}).strict().optional(),
+  params: z.object({
+    id: z.string(),
+  }),
 });
 
 const evaluationBodySchema = z.object({
@@ -101,7 +105,9 @@ export const createEvaluationSchema = z.object({
 export const updateEvaluationSchema = z.object({
   body: evaluationBodySchema.partial(),
   query: z.object({}).strict().optional(),
-  params: z.object({}).strict().optional(),
+  params: z.object({
+    id: z.string(),
+  }),
 });
 
 

@@ -12,6 +12,11 @@ export const getAllUsers = async () => {
           no: true,
         },
       },
+      _count: {
+        select: {
+          patentAssignments: true
+        }
+      }
     },
     orderBy: { displayOrder: 'asc' },
   });
@@ -23,6 +28,7 @@ export const getAllUsers = async () => {
     email: user.email,
     department: user.department?.name || '',
     role: user.permission,
+    assignedCount: user._count.patentAssignments,
   }));
 };
 

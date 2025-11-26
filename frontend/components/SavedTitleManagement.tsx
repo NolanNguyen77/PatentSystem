@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Checkbox } from './ui/checkbox';
 import { Alert, AlertDescription } from './ui/alert';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { ColorSelect } from './ColorSelect';
 import { AssignmentDialog } from './AssignmentDialog';
 import { titleAPI } from '../services/api';
@@ -35,57 +35,120 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [showPermissionWarning, setShowPermissionWarning] = useState(false);
+  const [permissionWarningMessage, setPermissionWarningMessage] = useState('');
 
   // Update state when titleData changes
+  // Update state when titleData changes
   useEffect(() => {
-    if (titleData) {
-      setTitleName(titleData.title || '');
-      setDataType(titleData.dataType || '特許');
-      setSaveDate(titleData.date || '2025/11');
+    const loadTitleData = async () => {
+      if (titleData) {
+        setTitleName(titleData.title || '');
+        setDataType(titleData.dataType || '特許');
+        setSaveDate(titleData.date || '2025/11');
 
-      // Set parent title if exists
-      if (titleData.parentTitleId) {
-        setParentTitle(String(titleData.parentTitleId));
-        console.log('✅ Set parent title ID:', titleData.parentTitleId);
-      } else if (titleData.parentTitle) {
-        // parentTitle might be an object { id, no, name }
-        const parentId = typeof titleData.parentTitle === 'object'
-          ? String(titleData.parentTitle.id || titleData.parentTitle.no)
-          : String(titleData.parentTitle);
-        setParentTitle(parentId);
-        console.log('✅ Set parent title from object:', parentId, titleData.parentTitle);
-      }
-
-      // Convert markColor to markType
-      const colorToMarkMap: { [key: string]: string } = {
-        '': 'マークなし',
-        '#dc2626': 'レッド',
-        '#f97316': 'オレンジ',
-        '#facc15': 'イエロー',
-        '#22c55e': 'グリーン',
-        '#3b82f6': 'ブルー',
-        '#9333ea': 'パープル',
-        '#ec4899': 'ピンク',
-        '#22d3ee': 'ネオンブルー',
-        '#a3e635': 'イエローグリーン',
-        '#9ca3af': 'グレー',
-      };
-      setMarkType(colorToMarkMap[titleData.markColor || ''] || 'マークなし');
-
-      // Load users for this title (mock data for now) - mark as existing users (not deletable)
-      setSelectedUsers([
-        {
-          id: 1,
-          name: titleData.responsible || 'グエン・タン・タン',
-          userId: 'Nguyen',
-          dept: titleData.department || '調査力開発',
-          permission: '管理者',
-          isMain: true,
-          evalEmail: true,
-          isExisting: true // Mark as existing user from title
+        // Set parent title if exists
+        if (titleData.parentTitleId) {
+          setParentTitle(String(titleData.parentTitleId));
+          console.log('✅ Set parent title ID:', titleData.parentTitleId);
+        } else if (titleData.parentTitle) {
+          // parentTitle might be an object { id, no, name }
+          const parentId = typeof titleData.parentTitle === 'object'
+            ? String(titleData.parentTitle.id || titleData.parentTitle.no)
+            : String(titleData.parentTitle);
+          setParentTitle(parentId);
+          console.log('✅ Set parent title from object:', parentId, titleData.parentTitle);
         }
-      ]);
-    }
+
+        // Convert markColor to markType
+        const colorToMarkMap: { [key: string]: string } = {
+          '': 'マークなし',
+          '#dc2626': 'レッド',
+          '#f97316': 'オレンジ',
+          '#facc15': 'イエロー',
+          '#22c55e': 'グリーン',
+          '#3b82f6': 'ブルー',
+          '#9333ea': 'パープル',
+          '#ec4899': 'ピンク',
+          '#22d3ee': 'ネオンブルー',
+          '#a3e635': 'イエローグリーン',
+          '#9ca3af': 'グレー',
+        };
+        setMarkType(colorToMarkMap[titleData.markColor || ''] || 'マークなし');
+
+        // Load users
+        if (titleData.users && Array.isArray(titleData.users) && titleData.users.length > 0) {
+          console.log('✅ Using provided users from titleData');
+          setSelectedUsers(titleData.users.map((u: any) => ({
+            ...u,
+            isExisting: true
+          })));
+        } else if (titleData.id) {
+          try {
+            console.log('🔄 Fetching full title details for users...', titleData.id);
+            const res = await titleAPI.getById(String(titleData.id));
+            console.log('📦 Full API response:', res);
+            console.log('📦 res.data:', res.data);
+            console.log('📦 res.data.data:', res.data?.data);
+
+            // Backend returns nested structure: { data: { data: { titleUsers: [...] } } }
+            const titleDetails = res.data?.data || res.data;
+            const usersList = titleDetails?.users || titleDetails?.titleUsers;
+            console.log('📦 titleDetails:', titleDetails);
+            console.log('📦 usersList:', usersList);
+
+            if (usersList && Array.isArray(usersList)) {
+              console.log('✅ Fetched users:', usersList);
+              console.log('📋 First user in list:', usersList[0]);
+              const mappedUsers = usersList.map((u: any) => {
+                // Handle nested user object (from titleUsers relation) or flat user object
+                const userInfo = u.user || u;
+                console.log('🔍 Mapping user - raw u:', u);
+                console.log('🔍 Mapping user - userInfo:', userInfo);
+                console.log('🔍 userInfo.id:', userInfo.id, 'userInfo.userId:', userInfo.userId);
+
+                // Determine permission
+                let permission = u.permission || '一般';
+                if (u.isAdmin) permission = '管理者';
+                else if (u.isViewer) permission = '閲覧';
+                else if (u.isGeneral) permission = '一般';
+
+                const mapped = {
+                  id: userInfo.id || Date.now() + Math.random(),
+                  userId: userInfo.userId,
+                  name: userInfo.name || userInfo.userId,
+                  dept: userInfo.department?.name || userInfo.department || '',
+                  permission: permission,
+                  isMain: u.isMainResponsible || false,
+                  evalEmail: u.evalEmail || false,
+                  isExisting: true
+                };
+                console.log('✅ Mapped user result:', mapped);
+                return mapped;
+              });
+              setSelectedUsers(mappedUsers);
+            } else {
+              console.warn('⚠️ No users found in API response, falling back to default');
+              // Fallback
+              setSelectedUsers([{
+                id: Date.now(),
+                name: titleData.responsible || '',
+                userId: titleData.responsibleId || '',
+                dept: titleData.department || '',
+                permission: '管理者',
+                isMain: true,
+                evalEmail: true,
+                isExisting: true
+              }]);
+            }
+          } catch (err) {
+            console.error('❌ Failed to fetch title details:', err);
+          }
+        }
+      }
+    };
+
+    loadTitleData();
   }, [titleData]);
 
   // Fetch all users and departments from API
@@ -109,21 +172,27 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
         if (usersRes.ok) {
           const usersData = await usersRes.json();
           console.log('📦 Raw users API response:', usersData);
-          
+          console.log('📦 usersData.data:', usersData.data);
+          console.log('📦 usersData.data.users:', usersData.data?.users);
+
           if (usersData.data && usersData.data.users) {
             console.log('👤 First user sample:', usersData.data.users[0]);
-            
+            console.log('👤 First user keys:', Object.keys(usersData.data.users[0]));
+
             const mappedUsers = usersData.data.users.map((u: any) => {
-              const deptName = typeof u.department === 'string' 
-                ? u.department 
+              const deptName = typeof u.department === 'string'
+                ? u.department
                 : (u.department?.name || u.departmentName || '');
-              console.log(`Mapping user ${u.userId}: dept = "${deptName}"`, u);
+              console.log(`Mapping user - id: ${u.id}, userId: ${u.userId}, name: ${u.name}`);
               return {
-                ...u,
-                dept: deptName
+                id: u.id,
+                userId: u.userId, // This is the login username
+                name: u.name,
+                dept: deptName,
+                permission: u.permission || '一般'
               };
             });
-            
+
             console.log('✅ Mapped users:', mappedUsers);
             setAllUsers(mappedUsers);
 
@@ -196,7 +265,13 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
           if (res.ok) {
             const data = await res.json();
             const deptUsers = data.data?.users || [];
-            collectedUsers.push(...deptUsers);
+            // Normalize users
+            const normalized = deptUsers.map((u: any) => ({
+              ...u,
+              dept: u.dept || (u.department && (u.department.name || u.department.title || u.department.no)) || u.departmentName || '',
+              isMain: u.isMainResponsible || false,
+            }));
+            collectedUsers.push(...normalized);
           }
         } catch (err) {
           console.error(`Error fetching users for department ${deptId}:`, err);
@@ -218,9 +293,37 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
   };
 
   const handleToggleMain = (userId: number) => {
-    setSelectedUsers(selectedUsers.map(user =>
-      user.id === userId ? { ...user, isMain: !user.isMain } : user
-    ));
+    const targetUser = selectedUsers.find(u => u.id === userId);
+    if (!targetUser) return;
+
+    // Check permission: only '管理者' can be main responsible
+    if (targetUser.permission !== '管理者') {
+      setPermissionWarningMessage('主担当は管理者のみ設定可能です。');
+      setShowPermissionWarning(true);
+      return;
+    }
+
+    // Toggle logic:
+    // If clicking on current main -> toggle off (no main responsible) or keep on?
+    // Requirement: "only 1 user as main". Usually implies radio behavior.
+    // If we allow 0 main, then toggle is fine. If we require 1 main, we shouldn't allow toggling off the only main.
+    // Assuming we allow toggling off for now, but if turning ON, we must turn OFF others.
+
+    setSelectedUsers(prevUsers => {
+      const isCurrentlyMain = targetUser.isMain;
+      const willBeMain = !isCurrentlyMain;
+
+      if (willBeMain) {
+        // Set target to true, all others to false
+        return prevUsers.map(u => ({
+          ...u,
+          isMain: u.id === userId
+        }));
+      } else {
+        // Set target to false, others remain false
+        return prevUsers.map(u => u.id === userId ? { ...u, isMain: false } : u);
+      }
+    });
   };
 
   const handleAddEmptyRow = () => {
@@ -270,33 +373,51 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!titleName) {
       setShowWarning(true);
       return;
     }
 
-    // Find the main responsible user
-    const mainUser = selectedUsers.find(user => user.isMain);
-    const responsibleName = mainUser ? mainUser.name : titleData?.responsible || '';
+    try {
+      // Filter out users without userId
+      const validUsers = selectedUsers.filter(u => u.userId && u.userId.trim() !== '');
 
-    // Handle form submission
-    const updatedTitleData = {
-      ...titleData,
-      title: titleName,
-      responsible: responsibleName,
-      dataType,
-      markType,
-      parentTitle,
-      date: saveDate,
-      disallowEvaluation,
-      allowEvaluation,
-      selectedUsers
-    };
-    if (onSave) {
-      onSave(updatedTitleData);
+      const updateData = {
+        users: validUsers.map((u, index) => ({
+          userId: u.userId,
+          isMainResponsible: u.isMain || false,
+          permission: u.permission || '一般',
+          evalEmail: u.evalEmail || false,
+          confirmEmail: u.confirmEmail || false,
+          displayOrder: index
+        }))
+      };
+
+      console.log('📤 Updating title users:', updateData);
+      console.log('📤 Valid users count:', validUsers.length);
+
+      const result = await titleAPI.update(titleData.id, updateData);
+
+      console.log('📦 API Result:', result);
+
+      if (result.error) {
+        console.error('❌ Failed to update title:', result.error);
+        alert(`タイトル更新に失敗しました\n\n${result.error}`);
+        return;
+      }
+
+      console.log('✅ Title updated successfully:', result.data);
+      alert('タイトルを更新しました');
+
+      // Call onSave callback
+      if (onSave) {
+        onSave({ success: true });
+      }
+    } catch (error) {
+      console.error('❌ Error updating title:', error);
+      alert(`タイトル更新中にエラーが発生しました\n\n${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-    console.log('Title updated:', updatedTitleData);
   };
 
   return (
@@ -327,6 +448,8 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
           </AlertDescription>
         </Alert>
       )}
+
+
 
       {/* Header with buttons */}
       <div className="flex items-center justify-between">
@@ -564,14 +687,26 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Select defaultValue={user.permission}>
+                      <Select
+                        value={user.permission}
+                        onValueChange={(value: string) => {
+                          setSelectedUsers(selectedUsers.map(u => {
+                            if (u.id === user.id) {
+                              // If permission changes to something other than Admin, remove main responsible status
+                              const isMain = value === '管理者' ? u.isMain : false;
+                              return { ...u, permission: value, isMain };
+                            }
+                            return u;
+                          }));
+                        }}
+                      >
                         <SelectTrigger className="h-8 border-gray-300">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="管理者">管理者</SelectItem>
                           <SelectItem value="一般">一般</SelectItem>
-                          <SelectItem value="関覧">関覧</SelectItem>
+                          <SelectItem value="閲覧">閲覧</SelectItem>
                         </SelectContent>
                       </Select>
                     </TableCell>
@@ -744,6 +879,30 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
               </Table>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Permission Warning Dialog */}
+      <Dialog open={showPermissionWarning} onOpenChange={setShowPermissionWarning}>
+        <DialogContent className="max-w-md border-2 border-orange-200">
+          <DialogHeader className="flex flex-row items-center gap-2 border-b border-orange-100 pb-2">
+            <AlertCircle className="h-6 w-6 text-orange-500" />
+            <DialogTitle className="text-lg text-orange-600">エラー</DialogTitle>
+            <DialogDescription className="sr-only">
+              権限エラー
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-gray-700 whitespace-pre-wrap">{permissionWarningMessage}</p>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => setShowPermissionWarning(false)}
+              className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white border-0"
+            >
+              閉じる
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

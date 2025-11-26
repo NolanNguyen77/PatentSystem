@@ -62,10 +62,10 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
         if (usersRes.ok) {
           const usersData = await usersRes.json();
           console.log('📦 Raw users API response:', usersData);
-          
+
           if (usersData.data && usersData.data.users) {
             console.log('👤 First user sample:', usersData.data.users[0]);
-            
+
             // Map users with department name
             // Backend already flattens department to string, so use it directly
             const mappedUsers = usersData.data.users.map((u: any) => {
@@ -77,10 +77,10 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
                 dept: deptName
               };
             });
-            
+
             console.log('✅ Mapped users:', mappedUsers);
             setAllUsers(mappedUsers);
-            
+
             // Find current logged-in user and set as default first row
             const currentUser = mappedUsers.find((u: any) => u.userId === currentUsername);
             if (currentUser) {
@@ -102,7 +102,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
             }
           }
         }
-        
+
         // Fetch departments
         const deptsRes = await fetch('http://localhost:4001/api/users/departments', { headers });
         if (deptsRes.ok) {
@@ -118,9 +118,9 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
         try {
           const titlesResult = await titleAPI.getAll();
           console.log('📦 titleAPI.getAll() result:', titlesResult);
-          
+
           let titles: any[] = [];
-          
+
           // Handle nested response: { data: { data: { titles: [...] } } }
           if (titlesResult.data?.data?.titles) {
             titles = titlesResult.data.data.titles;
@@ -138,17 +138,17 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
             console.error('❌ API Error fetching titles:', titlesResult.error);
             titles = [];
           }
-          
+
           // Filter out current title being created (if any) and ensure we have valid titles
           const validTitles = titles.filter(t => t && (t.id || t.no) && (t.titleName || t.title || t.name));
-          
+
           setParentTitles(validTitles);
           console.log('✅ Loaded parent titles:', validTitles.length, validTitles);
         } catch (err) {
           console.error('❌ Error fetching parent titles:', err);
           setParentTitles([]);
         }
-        
+
         console.log('✅ Loaded users and departments');
       } catch (err) {
         console.error('❌ Error fetching data:', err);
@@ -159,28 +159,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
     fetchData();
   }, []);
 
-  // Mock department users
-  const departmentUsers = {
-    1: [
-      { id: 1, userId: 'Nguyen', name: 'グエン・タイ・タン', dept: 'その他開発', section: '', permission: '管理者', isMain: true, displayOrder: 0, userDisplayOrder: 0, evalEmail: true, confirmEmail: true },
-      { id: 2, userId: 'tsuji', name: 'つじま', dept: 'その他開発', section: '', permission: '管理者', isMain: false, displayOrder: 0, userDisplayOrder: 0, evalEmail: true, confirmEmail: false },
-    ],
-    2: [
-      { id: 3, userId: 'yamamoto', name: 'やまもと', dept: '個人営業', section: '', permission: '管理者', isMain: false, displayOrder: 0, userDisplayOrder: 0, evalEmail: false, confirmEmail: true },
-    ],
-    3: [
-      { id: 4, userId: 'yamamoto1', name: 'やまもと１', dept: '調査力開発', section: '', permission: '管理者', isMain: false, displayOrder: 0, userDisplayOrder: 0, evalEmail: false, confirmEmail: true },
-      { id: 5, userId: 'maruo', name: 'まるお', dept: '調査力開発', section: '', permission: '管理者', isMain: false, displayOrder: 0, userDisplayOrder: 0, evalEmail: false, confirmEmail: true },
-      { id: 6, userId: 'm_tym01', name: '一般 01', dept: '調査力開発', section: '', permission: '一般', isMain: false, displayOrder: 0, userDisplayOrder: 0, evalEmail: false, confirmEmail: true },
-    ],
-    4: [
-      { id: 7, userId: 'yamamoto2', name: 'やまもと２', dept: '構佐', section: '', permission: '管理者', isMain: false, displayOrder: 0, userDisplayOrder: 0, evalEmail: false, confirmEmail: true },
-    ],
-    5: [
-      { id: 8, userId: 'm_tym02', name: '一般 02', dept: '法人営業', section: '', permission: '一般', isMain: false, displayOrder: 0, userDisplayOrder: 0, evalEmail: false, confirmEmail: true },
-      { id: 9, userId: 'm_tym03', name: '一般 03', dept: '法人営業', section: '', permission: '一般', isMain: false, displayOrder: 0, userDisplayOrder: 0, evalEmail: false, confirmEmail: true },
-    ],
-  };
+
 
   const handleDepartmentSelect = (deptId: number, checked: boolean) => {
     if (checked) {
@@ -198,9 +177,9 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       };
-      
+
       const collectedUsers: any[] = [];
-      
+
       for (const deptId of selectedDepartments) {
         try {
           const res = await fetch(`http://localhost:4001/api/departments/${deptId}/users`, { headers });
@@ -220,7 +199,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
               } else if (u.isGeneral) {
                 permission = '一般';
               }
-              
+
               return {
                 ...u,
                 permission, // Ensure permission is set
@@ -236,17 +215,17 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
           console.error(`Error fetching users for department ${deptId}:`, err);
         }
       }
-      
+
       // Update the main user list with selected department users
       setSelectedUsers(collectedUsers);
       console.log('✅ Added users from selected departments:', collectedUsers.length, collectedUsers);
     } catch (err) {
       console.error('❌ Error executing department settings:', err);
     }
-    
+
     // Close the dialog
     setShowDepartmentDialog(false);
-    
+
     // Reset selections
     setSelectedDepartments([]);
   };
@@ -275,7 +254,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
       return;
     }
 
-    setSelectedUsers(selectedUsers.map(u => 
+    setSelectedUsers(selectedUsers.map(u =>
       u.id === userId ? { ...u, isMain: !u.isMain } : u
     ));
   };
@@ -320,7 +299,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
   const handleDeleteUser = (userId: number) => {
     const user = selectedUsers.find(u => u.id === userId);
     const userName = user?.name || user?.userId || 'このユーザー';
-    
+
     if (confirm(`${userName}を削除してもよろしいですか？`)) {
       setSelectedUsers(selectedUsers.filter(user => user.id !== userId));
       console.log(`✅ Deleted user: ${userName}`);
@@ -335,7 +314,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
   const handleSelectUserFromDialog = (selectedUser: any) => {
     if (editingUserId) {
       // Update the row with selected user info
-      setSelectedUsers(selectedUsers.map(user => 
+      setSelectedUsers(selectedUsers.map(user =>
         user.id === editingUserId ? {
           ...user,
           userId: selectedUser.userId,
@@ -345,7 +324,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
           isEmpty: false
         } : user
       ));
-      
+
       // Close dialog and reset
       setShowUserSearchDialog(false);
       setEditingUserId(null);
@@ -357,12 +336,12 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
       setShowWarning(true);
       return;
     }
-    
+
     try {
       // Prepare title data for API
       // Filter out users without userId
       const validUsers = selectedUsers.filter(u => u.userId && u.userId.trim() !== '');
-      
+
       const titleData = {
         titleName,
         dataType: dataType || '特許',
@@ -384,28 +363,28 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
           displayOrder: u.displayOrder || 0
         }))
       };
-      
+
       console.log('📤 Submitting title data:', titleData);
       console.log('📤 Valid users count:', validUsers.length);
-      
+
       const result = await titleAPI.create(titleData);
-      
+
       console.log('📦 API Result:', result);
-      
+
       if (result.error) {
         console.error('❌ Failed to create title:', result.error);
         setPermissionWarningMessage(`タイトル作成に失敗しました\n\n${result.error}`);
         setShowPermissionWarning(true);
         return;
       }
-      
+
       console.log('✅ Title created successfully:', result.data);
-      
+
       // Extract title info from response
       // Backend may return: { data: { id, titleNo, message } } or { id, titleNo, message }
       const titleInfo = result.data?.data || result.data;
       console.log('📋 Title info:', titleInfo);
-      
+
       // Show success dialog
       setCreatedTitleInfo({
         titleName,
@@ -414,7 +393,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
       });
       setShowSuccessDialog(true);
       console.log('✅ Success dialog should be visible now');
-      
+
       // Don't call onSave here - it will close the form immediately
       // Instead, call it when user clicks "一覧に戻る" button
     } catch (error) {
@@ -429,8 +408,8 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
       {/* Header with title */}
       <div className="flex items-center gap-4 mb-4">
         {onBack && (
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={onBack}
             className="border-2"
           >
@@ -460,7 +439,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
           <span className="text-lg">タイトルの基本情報を設定します。</span>
         </div>
         <div className="flex gap-2">
-          <Button 
+          <Button
             onClick={handleSubmit}
             className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white"
           >
@@ -498,9 +477,9 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
               </div>
               <div className="flex-1">
                 <Label htmlFor="markType">マーク</Label>
-                <ColorSelect 
+                <ColorSelect
                   id="markType"
-                  value={markType} 
+                  value={markType}
                   onValueChange={setMarkType}
                   className="border-2"
                 />
@@ -511,7 +490,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
             <div className="flex gap-4 items-end">
               <div className="flex-1">
                 <Label htmlFor="titleName">タイトル名</Label>
-                <Input 
+                <Input
                   id="titleName"
                   value={titleName}
                   onChange={(e) => setTitleName(e.target.value)}
@@ -547,7 +526,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
             <div className="flex gap-4 items-end">
               <div className="flex-1">
                 <Label htmlFor="saveDate">保存年月</Label>
-                <Input 
+                <Input
                   id="saveDate"
                   value={saveDate}
                   onChange={(e) => setSaveDate(e.target.value)}
@@ -559,12 +538,12 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
                 {/* Empty space for alignment */}
               </div>
             </div>
-            
+
             {/* Evaluation display permission */}
             <div className="space-y-3 pt-2 border-t border-gray-200">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Checkbox 
+                  <Checkbox
                     id="disallow-eval"
                     checked={disallowEvaluation}
                     onCheckedChange={(checked: boolean | 'indeterminate') => {
@@ -577,7 +556,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
                   </Label>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Checkbox 
+                  <Checkbox
                     id="allow-eval"
                     checked={allowEvaluation}
                     onCheckedChange={(checked: boolean | 'indeterminate') => {
@@ -609,12 +588,12 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
           <div className="mb-4 text-sm text-center text-gray-500 border-2 border-gray-200 rounded p-2">
             書籍が指定されていません
           </div>
-          
+
           {/* Department Settings Button */}
           <div className="mb-4">
-            <Button 
-              size="sm" 
-              variant="outline" 
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => setShowDepartmentDialog(true)}
               className="border-2"
             >
@@ -647,9 +626,9 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <span>{user.userId}</span>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           className="h-5 w-5 p-0"
                           onClick={() => handleOpenUserSearch(user.id)}
                         >
@@ -686,9 +665,9 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
+                      <Button
+                        size="sm"
+                        variant="ghost"
                         className="text-orange-500 hover:text-orange-700"
                         onClick={() => handleDeleteUser(user.id)}
                       >
@@ -721,27 +700,27 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
             <DialogDescription className="sr-only">
               部署を選択してユーザーを設定します
             </DialogDescription>
-            <Button 
-              variant="link" 
+            <Button
+              variant="link"
               className="text-blue-500 hover:text-blue-700"
               onClick={() => setShowDepartmentDialog(false)}
             >
               閉じる
             </Button>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div className="flex justify-between items-center">
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 variant="outline"
                 className="border-2"
                 onClick={handleExecuteSettings}
               >
                 設定を実行する
               </Button>
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 variant="ghost"
                 className="text-blue-500 hover:text-blue-700"
               >
@@ -766,7 +745,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
                     departments.map((dept) => (
                       <TableRow key={dept.id} className="hover:bg-gray-50">
                         <TableCell className="text-center">
-                          <Checkbox 
+                          <Checkbox
                             checked={selectedDepartments.includes(dept.id)}
                             onCheckedChange={(checked: boolean | 'indeterminate') => handleDepartmentSelect(dept.id, typeof checked === 'boolean' ? checked : false)}
                           />
@@ -805,15 +784,15 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
             <DialogDescription className="sr-only">
               ユーザーを検索して追加します
             </DialogDescription>
-            <Button 
-              variant="link" 
+            <Button
+              variant="link"
               className="text-blue-500 hover:text-blue-700"
               onClick={() => setShowUserSearchDialog(false)}
             >
               閉じる
             </Button>
           </DialogHeader>
-          
+
           <div className="flex-1 overflow-auto">
             <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
               <Table>
@@ -826,8 +805,8 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
                 </TableHeader>
                 <TableBody>
                   {allUsers.map((user, index) => (
-                    <TableRow 
-                      key={index} 
+                    <TableRow
+                      key={index}
                       className="hover:bg-gray-50 cursor-pointer"
                       onClick={() => handleSelectUserFromDialog(user)}
                     >
@@ -861,7 +840,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
               </div>
             </div>
           </DialogHeader>
-          
+
           <div className="py-6">
             <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-r-lg">
               <div className="space-y-2">
@@ -873,9 +852,9 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
               </div>
             </div>
           </div>
-          
+
           <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button 
+            <Button
               onClick={() => setShowPermissionWarning(false)}
               className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white px-8 shadow-md hover:shadow-lg transition-all"
             >
@@ -899,7 +878,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
               </div>
             </div>
           </DialogHeader>
-          
+
           <div className="py-4">
             {createdTitleInfo && (
               <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-lg p-4">
@@ -924,19 +903,19 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
               </div>
             )}
           </div>
-          
+
           <div className="flex justify-end gap-2 pt-2 border-t">
-            <Button 
+            <Button
               onClick={() => {
                 setShowSuccessDialog(false);
                 setCreatedTitleInfo(null);
-                
+
                 // Call onSave to trigger refresh in parent
                 if (onSave) {
                   console.log('📞 Calling onSave callback from dialog button');
                   onSave({ success: true });
                 }
-                
+
                 // Then go back to list
                 if (onBack) {
                   onBack();

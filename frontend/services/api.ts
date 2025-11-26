@@ -265,6 +265,13 @@ const realPatentAPI = {
       body: JSON.stringify({ ids }),
     });
   },
+
+  assign: async (mode: 'add' | 'replace' | 'remove', patentIds: string[], userIds: string[]) => {
+    return apiCall<{ message: string; count: number }>('/patents/assign', {
+      method: 'POST',
+      body: JSON.stringify({ mode, patentIds, userIds }),
+    });
+  },
 };
 
 const realImportExportAPI = {
