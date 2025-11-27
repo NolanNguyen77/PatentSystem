@@ -28,6 +28,8 @@ const systemFields = [
   { key: 'kokoku', label: '公告番号', required: false },
   { key: 'toroku', label: '登録番号', required: false },
   { key: 'shinpan', label: '審判番号', required: false },
+  { key: 'abstract', label: '要約', required: false },
+  { key: 'claims', label: '請求の範囲', required: false },
   { key: 'sonota', label: 'その他', required: false },
   { key: 'stage', label: 'ステージ', required: false },
   { key: 'event', label: 'イベント詳細', required: false },

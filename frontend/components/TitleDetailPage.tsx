@@ -26,7 +26,16 @@ interface TitleDetailPageProps {
   titleName: string;
   titleId?: string;
   onBack: () => void;
-  onViewPatentDetails?: (companyName: string, totalCount: number, titleData?: any) => void;
+  onViewPatentDetails?: (
+    companyName: string, 
+    totalCount: number, 
+    titleData?: any,
+    filterInfo?: {
+      dateFilter: string;
+      periodFilter: string;
+      dateColumn?: string;
+    }
+  ) => void;
 }
 
 const years = ['20', '19', '18', '17', '16', '15', '14', '13', '12', '11', '10', '09', '08', '07', '06', '05', '04', '03', '02', '01'];
@@ -56,6 +65,7 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
       'gazette': 'gazetteBulletinDate'
     };
     const field = dateFieldMap[dateFilter];
+    // Return the actual value from patent data (could be null/undefined if not set)
     return patent[field] || null;
   };
 
@@ -64,22 +74,65 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
     if (!dateStr) return '日付未設定';
     
     try {
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return '日付未設定';
+      // Handle both ISO string and Date object
+      let date: Date;
+      if (typeof dateStr === 'string') {
+        // Parse date string as local time (not UTC)
+        // If format is YYYY-MM-DD, parse as local date
+        if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+          const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+          date = new Date(year, month - 1, day);
+        } else {
+          date = new Date(dateStr);
+        }
+      } else {
+        date = dateStr;
+      }
+      if (!date || isNaN(date.getTime())) return '日付未設定';
 
       if (periodFilter === 'year') {
-        return `'${String(date.getFullYear()).slice(-2)}`; // '24
+        const year = String(date.getFullYear()).slice(-2);
+        return `'${year}`; // '24
       } else if (periodFilter === 'month') {
         const year = String(date.getFullYear()).slice(-2);
         const month = String(date.getMonth() + 1).padStart(2, '0');
         return `'${year}/${month}`; // '24/11
       } else if (periodFilter === 'week') {
-        // ISO week calculation
-        const onejan = new Date(date.getFullYear(), 0, 1);
-        const week = Math.ceil((((date.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7);
-        return String(week).padStart(2, '0'); // 01-52
+        // Calculate weeks backwards from current week
+        // Week starts on Sunday (0) and ends on Saturday (6)
+        const now = new Date();
+        
+        // Get the start of current week (Sunday)
+        const currentWeekStart = new Date(now);
+        currentWeekStart.setDate(now.getDate() - now.getDay());
+        currentWeekStart.setHours(0, 0, 0, 0);
+        
+        // Get the start of the week for the patent date
+        const patentWeekStart = new Date(date);
+        patentWeekStart.setDate(date.getDate() - date.getDay());
+        patentWeekStart.setHours(0, 0, 0, 0);
+        
+        // Calculate difference in weeks
+        const diffTime = currentWeekStart.getTime() - patentWeekStart.getTime();
+        const diffWeeks = Math.floor(diffTime / (7 * 24 * 60 * 60 * 1000));
+        
+        // Week 01 is current week, Week 02 is last week, etc.
+        const weekNumber = diffWeeks + 1;
+        
+
+        
+        if (weekNumber < 1) {
+          // Future dates go to "以前"
+          return '以前';
+        } else if (weekNumber > 20) {
+          // More than 20 weeks ago
+          return '以前';
+        }
+        
+        return String(weekNumber).padStart(2, '0'); // 01-20
       }
     } catch (e) {
+      console.error('Error formatting date:', e, dateStr);
       return '日付未設定';
     }
     return '日付未設定';
@@ -90,15 +143,18 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
     const patentsByCompany = new Map<string, any>();
     const dateColumns = getDateColumns();
 
-    patents.forEach((patent: any) => {
+    patents.forEach((patent: any, index: number) => {
       const company = patent.applicant ?? patent.applicantName ?? patent.assignee ?? patent.owner ?? '不明';
       const dateValue = getDateField(patent);
       const dateKey = formatDateKey(dateValue);
+      
+
 
       if (!patentsByCompany.has(company)) {
         const counts: { [key: string]: number } = {};
         dateColumns.forEach(col => counts[col] = 0);
         counts['日付未設定'] = 0;
+        counts['以前'] = 0;
 
         patentsByCompany.set(company, {
           id: patentsByCompany.size + 1,
@@ -117,10 +173,14 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
       }
 
       // Increment count for this date key
-      if (companyData.counts[dateKey] !== undefined) {
-        companyData.counts[dateKey] += 1;
-      } else if (dateKey === '日付未設定') {
+      if (dateKey === '日付未設定') {
         companyData.counts['日付未設定'] += 1;
+      } else if (dateKey === '以前') {
+        companyData.counts['以前'] += 1;
+      } else if (companyData.counts[dateKey] !== undefined) {
+        companyData.counts[dateKey] += 1;
+      } else {
+
       }
     });
 
@@ -133,7 +193,8 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
       try {
         setIsLoading(true);
         console.log('🔄 Fetching patents for title:', titleNo);
-        const result = await patentAPI.getByTitle(titleNo);
+        // Don't include full text (abstract/claims) for performance
+        const result = await patentAPI.getByTitle(titleNo, { includeFullText: false });
 
         const payload = result.data?.data ?? result.data ?? result;
 
@@ -149,8 +210,6 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
             // Transform data based on current filters
             const transformed = transformPatentData(patentsArray);
             setPatentData(transformed);
-            
-            console.log('✅ Loaded patents:', transformed.length, 'companies');
           }
         } else {
           console.warn('⚠️ No patents found', payload);
@@ -188,7 +247,7 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
       // Show months from '24/04 to '25/11 (April 2024 to November 2025)
       return ["'24/04", "'24/05", "'24/06", "'24/07", "'24/08", "'24/09", "'24/10", "'24/11", "'24/12", "'25/01", "'25/02", "'25/03", "'25/04", "'25/05", "'25/06", "'25/07", "'25/08", "'25/09", "'25/10", "'25/11"];
     } else if (periodFilter === 'week') {
-      // Show weeks from 20 to 01
+      // Show weeks from 20 to 01 (first 20 weeks of the year)
       return ['20', '19', '18', '17', '16', '15', '14', '13', '12', '11', '10', '09', '08', '07', '06', '05', '04', '03', '02', '01'];
     }
     return [];
@@ -464,7 +523,7 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                       onChange={handleSelectAll}
                     />
                   </TableHead>
-                  <TableHead className="min-w-[300px] bg-gray-100 border-r-4 border-r-gray-500" style={{ position: 'sticky', left: '48px', zIndex: 10 }}>
+                  <TableHead className="min-w-[300px] bg-gray-100" style={{ position: 'sticky', left: '48px', zIndex: 10, borderRight: '4px solid #6b7280' }}>
                     出願人・権利者名
                   </TableHead>
                   <TableHead className="text-center w-20 bg-gray-100 border-r">
@@ -472,6 +531,12 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                   </TableHead>
                   <TableHead className="text-center w-16 bg-gray-100 border-r">
                     <span className="text-sm">未評価</span>
+                  </TableHead>
+                  <TableHead className="text-center w-16 bg-gray-100 border-r">
+                    <span className="text-xs">日付未設定</span>
+                  </TableHead>
+                  <TableHead className="text-center w-16 bg-gray-100 border-r">
+                    <span className="text-xs">以前</span>
                   </TableHead>
                   {dateColumns.map((year) => (
                     <TableHead key={year} className="text-center w-12 bg-gray-100 border-r text-xs">
@@ -486,24 +551,79 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                   <TableCell className="sticky left-0 bg-blue-50 text-center border-r">
                     <input type="checkbox" className="w-4 h-4" disabled />
                   </TableCell>
-                  <TableCell className="bg-blue-50 border-r-4 border-r-gray-500" style={{ position: 'sticky', left: '48px' }}>
+                  <TableCell className="bg-blue-50" style={{ position: 'sticky', left: '48px', borderRight: '4px solid #6b7280' }}>
                     <span className="text-sm font-semibold">全件</span>
                   </TableCell>
                   <TableCell className="bg-blue-50 text-center border-r">
-                    <span className="text-sm font-semibold text-blue-600">
+                    <button
+                      className="text-blue-600 hover:underline text-sm font-semibold"
+                      onClick={() => onViewPatentDetails?.('全件', allPatents.length, { titleNo, titleName })}
+                    >
                       {allPatents.length}
-                    </span>
+                    </button>
                   </TableCell>
                   <TableCell className="bg-blue-50 text-center border-r">
                     <span className="text-sm font-semibold">{allPatents.filter(p => p.evaluationStatus === '未評価').length}</span>
+                  </TableCell>
+                  <TableCell className="bg-blue-50 text-center border-r">
+                    {(() => {
+                      const count = patentData.reduce((sum, item) => sum + (item.counts?.['日付未設定'] || 0), 0);
+                      return count > 0 ? (
+                        <button
+                          className="text-blue-600 hover:underline text-xs font-semibold"
+                          onClick={() => onViewPatentDetails?.(
+                            '全件',
+                            count,
+                            { titleNo, titleName },
+                            { dateFilter, periodFilter, dateColumn: '日付未設定' }
+                          )}
+                        >
+                          {count}
+                        </button>
+                      ) : (
+                        <span className="text-xs font-semibold text-gray-400">-</span>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell className="bg-blue-50 text-center border-r">
+                    {(() => {
+                      const count = patentData.reduce((sum, item) => sum + (item.counts?.['以前'] || 0), 0);
+                      return count > 0 ? (
+                        <button
+                          className="text-blue-600 hover:underline text-xs font-semibold"
+                          onClick={() => onViewPatentDetails?.(
+                            '全件',
+                            count,
+                            { titleNo, titleName },
+                            { dateFilter, periodFilter, dateColumn: '以前' }
+                          )}
+                        >
+                          {count}
+                        </button>
+                      ) : (
+                        <span className="text-xs font-semibold text-gray-400">-</span>
+                      );
+                    })()}
                   </TableCell>
                   {dateColumns.map((col) => {
                     const total = patentData.reduce((sum, item) => sum + (item.counts?.[col] || 0), 0);
                     return (
                       <TableCell key={col} className="bg-blue-50 text-center border-r">
-                        <span className={`text-xs font-semibold ${total > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
-                          {total > 0 ? total : '-'}
-                        </span>
+                        {total > 0 ? (
+                          <button
+                            className="text-blue-600 hover:underline text-xs font-semibold"
+                            onClick={() => onViewPatentDetails?.(
+                              '全件',
+                              total,
+                              { titleNo, titleName },
+                              { dateFilter, periodFilter, dateColumn: col }
+                            )}
+                          >
+                            {total}
+                          </button>
+                        ) : (
+                          <span className="text-xs font-semibold text-gray-400">-</span>
+                        )}
                       </TableCell>
                     );
                   })}
@@ -512,10 +632,10 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                 {patentData.map((item) => (
                   <TableRow
                     key={item.id}
-                    className={`hover:bg-orange-50 ${selectedRows.includes(item.id) ? 'bg-blue-50' : ''
+                    className={`group hover:bg-orange-50 transition-colors ${selectedRows.includes(item.id) ? 'bg-blue-50' : ''
                       }`}
                   >
-                    <TableCell className="sticky left-0 bg-white text-center border-r">
+                    <TableCell className="sticky left-0 group-hover:bg-orange-50 text-center border-r transition-colors" style={{ backgroundColor: selectedRows.includes(item.id) ? '#dbeafe' : 'white' }}>
                       <input
                         type="checkbox"
                         className="w-4 h-4 cursor-pointer"
@@ -523,10 +643,18 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                         onChange={() => handleRowSelect(item.id)}
                       />
                     </TableCell>
-                    <TableCell className="bg-white border-r-4 border-r-gray-500" style={{ position: 'sticky', left: '48px' }}>
+                    <TableCell 
+                      className="group-hover:bg-orange-50 transition-colors" 
+                      style={{ 
+                        position: 'sticky', 
+                        left: '48px', 
+                        backgroundColor: selectedRows.includes(item.id) ? '#dbeafe' : 'white',
+                        borderRight: '4px solid #6b7280'
+                      }}
+                    >
                       <span className="text-sm">{item.company}</span>
                     </TableCell>
-                    <TableCell className="bg-white text-center border-r">
+                    <TableCell className="group-hover:bg-orange-50 text-center border-r transition-colors">
                       <button
                         className="text-blue-600 hover:underline text-sm"
                         onClick={() => onViewPatentDetails?.(item.company, item.total, { titleNo, titleName })}
@@ -534,16 +662,62 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                         {item.total}
                       </button>
                     </TableCell>
-                    <TableCell className="bg-white text-center border-r">
+                    <TableCell className="group-hover:bg-orange-50 text-center border-r transition-colors">
                       <span className="text-sm">{item.unEvaluated || 0}</span>
+                    </TableCell>
+                    <TableCell className="group-hover:bg-orange-50 text-center border-r transition-colors">
+                      {item.counts?.['日付未設定'] > 0 ? (
+                        <button
+                          className="text-blue-600 hover:underline text-xs"
+                          onClick={() => onViewPatentDetails?.(
+                            item.company, 
+                            item.counts?.['日付未設定'], 
+                            { titleNo, titleName },
+                            { dateFilter, periodFilter, dateColumn: '日付未設定' }
+                          )}
+                        >
+                          {item.counts?.['日付未設定']}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="group-hover:bg-orange-50 text-center border-r transition-colors">
+                      {item.counts?.['以前'] > 0 ? (
+                        <button
+                          className="text-blue-600 hover:underline text-xs"
+                          onClick={() => onViewPatentDetails?.(
+                            item.company, 
+                            item.counts?.['以前'], 
+                            { titleNo, titleName },
+                            { dateFilter, periodFilter, dateColumn: '以前' }
+                          )}
+                        >
+                          {item.counts?.['以前']}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
                     </TableCell>
                     {dateColumns.map((col) => {
                       const count = item.counts?.[col] || 0;
                       return (
-                        <TableCell key={col} className="text-center border-r">
-                          <span className={`text-xs ${count > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
-                            {count > 0 ? count : '-'}
-                          </span>
+                        <TableCell key={col} className="group-hover:bg-orange-50 text-center border-r transition-colors">
+                          {count > 0 ? (
+                            <button
+                              className="text-blue-600 hover:underline text-xs"
+                              onClick={() => onViewPatentDetails?.(
+                                item.company, 
+                                count, 
+                                { titleNo, titleName },
+                                { dateFilter, periodFilter, dateColumn: col }
+                              )}
+                            >
+                              {count}
+                            </button>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
                         </TableCell>
                       );
                     })}

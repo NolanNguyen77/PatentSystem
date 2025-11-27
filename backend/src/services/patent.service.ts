@@ -69,6 +69,7 @@ export const getPatentsByTitle = async (
     status?: 'evaluated' | 'unevaluated';
     search?: string;
     applicant?: string;
+    includeFullText?: boolean; // New parameter to control if we include abstract/claims
   }
 ) => {
   let titleId = titleIdentifier;
@@ -109,14 +110,43 @@ export const getPatentsByTitle = async (
     where.applicantName = filters.applicant;
   }
 
-  const patents = await prisma.patent.findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-  });
+  // Fetch patents with or without full text based on flag
+  const patents = filters.includeFullText 
+    ? await prisma.patent.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+      })
+    : await prisma.patent.findMany({
+        where,
+        select: {
+          id: true,
+          titleId: true,
+          documentNum: true,
+          applicationNum: true,
+          applicationDate: true,
+          publicationDate: true,
+          inventionTitle: true,
+          applicantName: true,
+          fiClassification: true,
+          publicationNum: true,
+          announcementNum: true,
+          registrationNum: true,
+          appealNum: true,
+          // Exclude abstract and claims for performance
+          otherInfo: true,
+          statusStage: true,
+          eventDetail: true,
+          documentUrl: true,
+          evaluationStatus: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
 
   const total = patents.length;
-  const evaluated = patents.filter((p) => p.evaluationStatus !== '未評価').length;
-  const unevaluated = patents.filter((p) => p.evaluationStatus === '未評価').length;
+  const evaluated = patents.filter((p: any) => p.evaluationStatus !== '未評価').length;
+  const unevaluated = patents.filter((p: any) => p.evaluationStatus === '未評価').length;
   const progressRate = total > 0 ? (evaluated / total) * 100 : 0;
 
   return {
@@ -427,6 +457,8 @@ export const importPatents = async (
         announcementNum: getData('kokoku'),
         registrationNum: getData('toroku'),
         appealNum: getData('shinpan'),
+        abstract: getData('abstract'),
+        claims: getData('claims'),
         otherInfo: getData('sonota'),
         statusStage: getData('stage'),
         eventDetail: getData('event'),

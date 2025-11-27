@@ -210,8 +210,13 @@ const realPatentAPI = {
   getByTitle: async (titleId: string, filters?: {
     status?: 'evaluated' | 'unevaluated';
     search?: string;
+    includeFullText?: boolean;
   }) => {
-    const params = new URLSearchParams(filters as any);
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.includeFullText) params.append('includeFullText', 'true');
+    
     return apiCall<{
       patents: any[];
       total: number;

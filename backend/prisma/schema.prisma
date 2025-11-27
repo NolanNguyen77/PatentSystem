@@ -118,6 +118,8 @@ model Patent {
   announcementNum  String?   @map("announcement_num")
   registrationNum  String?   @map("registration_num")
   appealNum        String?   @map("appeal_num")
+  abstract         String?   @map("abstract")
+  claims           String?   @map("claims")
   otherInfo        String?   @map("other_info")
   statusStage      String?   @map("status_stage")
   eventDetail      String?   @map("event_detail")

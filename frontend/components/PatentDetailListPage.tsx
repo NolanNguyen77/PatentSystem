@@ -24,6 +24,11 @@ interface PatentDetailListPageProps {
   companyName: string;
   totalCount: number;
   onBack: () => void;
+  filterInfo?: {
+    dateFilter: string;
+    periodFilter: string;
+    dateColumn?: string;
+  };
 }
 
 interface Patent {
@@ -39,6 +44,8 @@ interface Patent {
   announcementNum?: string;
   registrationNum?: string;
   appealNum?: string;
+  abstract?: string;
+  claims?: string;
   otherInfo?: string;
   statusStage?: string;
   eventDetail?: string;
@@ -54,7 +61,8 @@ export function PatentDetailListPage({
   responsibleId,
   companyName,
   totalCount,
-  onBack
+  onBack,
+  filterInfo
 }: PatentDetailListPageProps) {
   const [patents, setPatents] = useState<Patent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -78,34 +86,116 @@ export function PatentDetailListPage({
 
   const [resolvedTitleId, setResolvedTitleId] = useState<string | undefined>(titleId);
 
+  // Helper function to get date field based on filter
+  const getDateField = (patent: Patent): string | null => {
+    if (!filterInfo) return null;
+    
+    // Only application date has actual data
+    if (filterInfo.dateFilter === 'application') {
+      return patent.applicationDate || null;
+    }
+    // For all other date types, return null
+    return null;
+  };
+
+  // Helper function to format date based on period filter
+  const formatDateKey = (dateStr: string | null): string => {
+    if (!dateStr || !filterInfo) return '日付未設定';
+    
+    try {
+      // Parse date string as local time
+      let date: Date;
+      if (typeof dateStr === 'string') {
+        if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+          const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+          date = new Date(year, month - 1, day);
+        } else {
+          date = new Date(dateStr);
+        }
+      } else {
+        date = dateStr;
+      }
+      if (!date || isNaN(date.getTime())) return '日付未設定';
+
+      if (filterInfo.periodFilter === 'year') {
+        const year = String(date.getFullYear()).slice(-2);
+        return `'${year}`;
+      } else if (filterInfo.periodFilter === 'month') {
+        const year = String(date.getFullYear()).slice(-2);
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        return `'${year}/${month}`;
+      } else if (filterInfo.periodFilter === 'week') {
+        const now = new Date();
+        const currentWeekStart = new Date(now);
+        currentWeekStart.setDate(now.getDate() - now.getDay());
+        currentWeekStart.setHours(0, 0, 0, 0);
+        
+        const patentWeekStart = new Date(date);
+        patentWeekStart.setDate(date.getDate() - date.getDay());
+        patentWeekStart.setHours(0, 0, 0, 0);
+        
+        const diffTime = currentWeekStart.getTime() - patentWeekStart.getTime();
+        const diffWeeks = Math.floor(diffTime / (7 * 24 * 60 * 60 * 1000));
+        const weekNumber = diffWeeks + 1;
+        
+        if (weekNumber < 1) {
+          return '以前';
+        } else if (weekNumber > 20) {
+          return '以前';
+        }
+        
+        return String(weekNumber).padStart(2, '0');
+      }
+    } catch (e) {
+      return '日付未設定';
+    }
+    return '日付未設定';
+  };
+
+  // Filter patents based on filterInfo
+  const filterPatents = (patentList: Patent[]): Patent[] => {
+    if (!filterInfo || !filterInfo.dateColumn) {
+      // No filter, return all patents
+      return patentList;
+    }
+
+    return patentList.filter(patent => {
+      const dateValue = getDateField(patent);
+      const dateKey = formatDateKey(dateValue);
+      return dateKey === filterInfo.dateColumn;
+    });
+  };
+
   // Fetch patents from API
   useEffect(() => {
     const fetchPatents = async () => {
       try {
         setIsLoading(true);
-        console.log('🔄 Fetching patents for company:', companyName);
 
-        const result = await patentAPI.getByCompany(companyName, {
-          search: companyName
-        });
+        // If companyName is '全件', fetch all patents by title instead
+        // Include full text (abstract/claims) for detail page
+        const result = companyName === '全件'
+          ? await patentAPI.getByTitle(titleNo, { includeFullText: true })
+          : await patentAPI.getByCompany(companyName, { search: companyName });
 
         // Normalize possible response wrappers: apiCall -> { data }, controller -> { data: result }
         const payload = result.data?.data ?? result.data ?? result;
-        console.debug('PatentDetailListPage - payload sample:', payload?.patents ? payload.patents.slice(0, 3) : payload);
 
         if (payload) {
           const patentList = Array.isArray(payload.patents) ? payload.patents : (Array.isArray(payload) ? payload : (payload.data ?? []));
-          setPatents(patentList);
+          
+          // Apply filter if filterInfo is provided
+          const filteredPatents = filterPatents(patentList);
+          setPatents(filteredPatents);
 
           // Extract titleId from first patent if available and not already set
           if (patentList.length > 0 && patentList[0].title?.id) {
-            console.log('✅ Resolved titleId from patents:', patentList[0].title.id);
             setResolvedTitleId(patentList[0].title.id);
           }
 
           // Initialize patent states
           const initialStates: { [key: string]: any } = {};
-          patentList.forEach((patent: Patent) => {
+          filteredPatents.forEach((patent: Patent) => {
             initialStates[patent.id] = {
               topEvaluation: '未評価',
               bottomEvaluation: patent.evaluationStatus || '未評価',
@@ -115,9 +205,7 @@ export function PatentDetailListPage({
           });
 
           setPatentStates(initialStates);
-          console.log('✅ Loaded patents:', patentList.length);
         } else {
-          console.warn('⚠️ No patents found', payload);
           setPatents([]);
         }
       } catch (err) {
@@ -194,7 +282,6 @@ export function PatentDetailListPage({
       // Remove deleted patents from state
       setPatents(prev => prev.filter(p => !selectedIds.has(p.id)));
       setSelectedIds(new Set());
-      console.log('Deleted patents:', result.data?.count);
     } catch (err) {
       console.error('Failed to delete patents:', err);
       alert('削除に失敗しました');
@@ -232,6 +319,11 @@ export function PatentDetailListPage({
               <span className="text-sm text-gray-600">
                 出願人: <span className="font-medium">{companyName}</span>
               </span>
+              {filterInfo && filterInfo.dateColumn && (
+                <span className="text-sm text-orange-600 font-medium">
+                  フィルター: {filterInfo.dateColumn}
+                </span>
+              )}
               <span className="text-sm text-gray-600">
                 全 {patents.length} 件
               </span>
@@ -334,7 +426,7 @@ export function PatentDetailListPage({
                       { label: '【公告番号】', value: patent.announcementNum },
                       { label: '【登録番号】', value: patent.registrationNum },
                       { label: '【審判番号】', value: patent.appealNum },
-                      { label: '【その他】', value: patent.otherInfo },
+                      { label: '【請求の範囲】', value: patent.otherInfo },
                       { label: '【ステージ】', value: patent.statusStage },
                       { label: '【イベント詳細】', value: patent.eventDetail },
                     ].map((item, index) => (
@@ -429,8 +521,14 @@ export function PatentDetailListPage({
                         <div className="text-sm text-gray-600">【出願人/権利者】</div>
                         <div className="text-sm mb-3">{patent.applicantName || '-'}</div>
                         <div className="text-sm text-gray-600 mb-1">【要約】</div>
-                        <div className="text-sm bg-gray-50 p-2 rounded min-h-[120px] overflow-auto border border-gray-100">
-                          -
+                        <div 
+                          className="text-sm bg-gray-50 p-3 rounded h-[140px] overflow-y-auto border border-gray-200 whitespace-pre-wrap leading-relaxed" 
+                          style={{ 
+                            scrollbarWidth: 'thin',
+                            scrollbarColor: '#cbd5e0 #f7fafc'
+                          }}
+                        >
+                          {patent.abstract || '-'}
                         </div>
                       </div>
                     </div>
@@ -440,9 +538,15 @@ export function PatentDetailListPage({
                       <div className="space-y-2">
                         <div className="text-sm text-gray-600">【発明の名称】</div>
                         <div className="text-sm mb-3">{patent.inventionTitle || '-'}</div>
-                        <div className="text-sm text-gray-600 mb-1">【その他】</div>
-                        <div className="text-sm bg-gray-50 p-2 rounded min-h-[120px] overflow-auto border border-gray-100 whitespace-pre-wrap">
-                          {patent.otherInfo || '-'}
+                        <div className="text-sm text-gray-600 mb-1">【請求の範囲】</div>
+                        <div 
+                          className="text-sm bg-gray-50 p-3 rounded h-[140px] overflow-y-auto border border-gray-200 whitespace-pre-wrap leading-relaxed" 
+                          style={{ 
+                            scrollbarWidth: 'thin',
+                            scrollbarColor: '#cbd5e0 #f7fafc'
+                          }}
+                        >
+                          {patent.claims || '-'}
                         </div>
                       </div>
                     </div>

@@ -65,6 +65,11 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
     const [selectedTitleForImport, setSelectedTitleForImport] = useState<{ no: string; name: string } | null>(null);
     const [selectedCompany, setSelectedCompany] = useState<string>('');
     const [selectedCompanyCount, setSelectedCompanyCount] = useState<number>(0);
+    const [selectedFilterInfo, setSelectedFilterInfo] = useState<{
+        dateFilter: string;
+        periodFilter: string;
+        dateColumn?: string;
+    } | undefined>(undefined);
     const [selectedTitleForManagement, setSelectedTitleForManagement] = useState<any>(null);
     const [savedTitles, setSavedTitles] = useState<any[]>([]);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -394,9 +399,10 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                     titleName={selectedTitleForDetail.name}
                     titleId={selectedTitleForDetail.id}
                     onBack={() => setActiveTab('list')}
-                    onViewPatentDetails={(companyName, totalCount, titleData) => {
+                    onViewPatentDetails={(companyName, totalCount, titleData, filterInfo) => {
                         setSelectedCompany(companyName);
                         setSelectedCompanyCount(totalCount);
+                        setSelectedFilterInfo(filterInfo);
                         if (titleData) {
                             setSelectedTitleForDetail({
                                 no: titleData.titleNo,
@@ -419,6 +425,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                     companyName={selectedCompany}
                     totalCount={selectedCompanyCount}
                     onBack={() => setActiveTab('detail')}
+                    filterInfo={selectedFilterInfo}
                 />
             ) : (
                 <main className="container mx-auto px-4 py-8">
