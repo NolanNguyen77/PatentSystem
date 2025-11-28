@@ -89,7 +89,7 @@ export function PatentDetailListPage({
   // Helper function to get date field based on filter
   const getDateField = (patent: Patent): string | null => {
     if (!filterInfo) return null;
-    
+
     // Only application date has actual data
     if (filterInfo.dateFilter === 'application') {
       return patent.applicationDate || null;
@@ -101,7 +101,7 @@ export function PatentDetailListPage({
   // Helper function to format date based on period filter
   const formatDateKey = (dateStr: string | null): string => {
     if (!dateStr || !filterInfo) return '日付未設定';
-    
+
     try {
       // Parse date string as local time
       let date: Date;
@@ -129,21 +129,21 @@ export function PatentDetailListPage({
         const currentWeekStart = new Date(now);
         currentWeekStart.setDate(now.getDate() - now.getDay());
         currentWeekStart.setHours(0, 0, 0, 0);
-        
+
         const patentWeekStart = new Date(date);
         patentWeekStart.setDate(date.getDate() - date.getDay());
         patentWeekStart.setHours(0, 0, 0, 0);
-        
+
         const diffTime = currentWeekStart.getTime() - patentWeekStart.getTime();
         const diffWeeks = Math.floor(diffTime / (7 * 24 * 60 * 60 * 1000));
         const weekNumber = diffWeeks + 1;
-        
+
         if (weekNumber < 1) {
           return '以前';
         } else if (weekNumber > 20) {
           return '以前';
         }
-        
+
         return String(weekNumber).padStart(2, '0');
       }
     } catch (e) {
@@ -176,14 +176,14 @@ export function PatentDetailListPage({
         // Include full text (abstract/claims) for detail page
         const result = companyName === '全件'
           ? await patentAPI.getByTitle(titleNo, { includeFullText: true })
-          : await patentAPI.getByCompany(companyName, { search: companyName });
+          : await patentAPI.getByCompany(companyName, { search: companyName, includeFullText: true });
 
         // Normalize possible response wrappers: apiCall -> { data }, controller -> { data: result }
         const payload = result.data?.data ?? result.data ?? result;
 
         if (payload) {
           const patentList = Array.isArray(payload.patents) ? payload.patents : (Array.isArray(payload) ? payload : (payload.data ?? []));
-          
+
           // Apply filter if filterInfo is provided
           const filteredPatents = filterPatents(patentList);
           setPatents(filteredPatents);
@@ -426,7 +426,7 @@ export function PatentDetailListPage({
                       { label: '【公告番号】', value: patent.announcementNum },
                       { label: '【登録番号】', value: patent.registrationNum },
                       { label: '【審判番号】', value: patent.appealNum },
-                      { label: '【請求の範囲】', value: patent.otherInfo },
+                      { label: '【その他】', value: patent.otherInfo },
                       { label: '【ステージ】', value: patent.statusStage },
                       { label: '【イベント詳細】', value: patent.eventDetail },
                     ].map((item, index) => (
@@ -522,10 +522,10 @@ export function PatentDetailListPage({
                         <div className="text-sm mb-3">{patent.applicantName || '-'}</div>
                         <div className="text-sm text-gray-600 mb-1">【要約】</div>
                         <div 
-                          className="text-sm bg-gray-50 p-3 rounded h-[140px] overflow-y-auto border border-gray-200 whitespace-pre-wrap leading-relaxed" 
+                          className="text-sm bg-gray-50 p-3 rounded h-[220px] overflow-y-scroll border border-gray-200 whitespace-pre-wrap leading-relaxed"
                           style={{ 
                             scrollbarWidth: 'thin',
-                            scrollbarColor: '#cbd5e0 #f7fafc'
+                            scrollbarColor: '#9ca3af #f3f4f6'
                           }}
                         >
                           {patent.abstract || '-'}
@@ -540,10 +540,10 @@ export function PatentDetailListPage({
                         <div className="text-sm mb-3">{patent.inventionTitle || '-'}</div>
                         <div className="text-sm text-gray-600 mb-1">【請求の範囲】</div>
                         <div 
-                          className="text-sm bg-gray-50 p-3 rounded h-[140px] overflow-y-auto border border-gray-200 whitespace-pre-wrap leading-relaxed" 
+                          className="text-sm bg-gray-50 p-3 rounded h-[220px] overflow-y-scroll border border-gray-200 whitespace-pre-wrap leading-relaxed"
                           style={{ 
                             scrollbarWidth: 'thin',
-                            scrollbarColor: '#cbd5e0 #f7fafc'
+                            scrollbarColor: '#9ca3af #f3f4f6'
                           }}
                         >
                           {patent.claims || '-'}

@@ -118,9 +118,9 @@ model Patent {
   announcementNum  String?   @map("announcement_num")
   registrationNum  String?   @map("registration_num")
   appealNum        String?   @map("appeal_num")
-  abstract         String?   @map("abstract")
-  claims           String?   @map("claims")
-  otherInfo        String?   @map("other_info")
+  abstract         String?   @map("abstract") @db.Text
+  claims           String?   @map("claims") @db.Text
+  otherInfo        String?   @map("other_info") @db.Text
   statusStage      String?   @map("status_stage")
   eventDetail      String?   @map("event_detail")
   documentUrl      String?   @map("document_url")

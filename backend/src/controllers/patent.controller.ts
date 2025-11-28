@@ -257,6 +257,7 @@ export const getPatentsByCompanyController = async (
     const companyName = decodeURIComponent(req.params.name);
     const filters = {
       status: req.query.status as 'evaluated' | 'unevaluated' | undefined,
+      includeFullText: req.query.includeFullText === 'true',
     };
 
     const result = await getPatentsByCompany(companyName, filters);
@@ -276,6 +277,17 @@ export const importPatentsController = async (req: AuthRequest, res: Response): 
     }
 
     const { rows, columnMapping, titleNo } = req.body;
+
+    console.log('🔍 Import Request Received:');
+    console.log('  - Rows count:', rows?.length);
+    console.log('  - Column Mapping:', columnMapping);
+    console.log('  - Abstract column mapped to:', columnMapping?.abstract);
+    console.log('  - Claims column mapped to:', columnMapping?.claims);
+    if (rows && rows.length > 0) {
+      console.log('  - First row keys:', Object.keys(rows[0]));
+      console.log('  - First row abstract value:', rows[0][columnMapping?.abstract]?.substring(0, 50));
+      console.log('  - First row claims value:', rows[0][columnMapping?.claims]?.substring(0, 50));
+    }
 
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
       res.status(400).json({ error: 'No data rows provided' });

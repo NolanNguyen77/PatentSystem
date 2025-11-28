@@ -216,7 +216,7 @@ const realPatentAPI = {
     if (filters?.status) params.append('status', filters.status);
     if (filters?.search) params.append('search', filters.search);
     if (filters?.includeFullText) params.append('includeFullText', 'true');
-    
+
     return apiCall<{
       patents: any[];
       total: number;
@@ -228,8 +228,12 @@ const realPatentAPI = {
 
   // Fetch patents by company name using existing backend route
   // Postman collection shows: GET /api/patents/companies/:name/patents
-  getByCompany: async (companyName: string, filters?: { status?: 'evaluated' | 'unevaluated'; search?: string }) => {
-    const params = new URLSearchParams(filters as any);
+  getByCompany: async (companyName: string, filters?: { status?: 'evaluated' | 'unevaluated'; search?: string; includeFullText?: boolean }) => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.includeFullText) params.append('includeFullText', 'true');
+
     return apiCall<{
       patents: any[];
       total: number;

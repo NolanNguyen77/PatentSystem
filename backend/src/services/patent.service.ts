@@ -111,38 +111,38 @@ export const getPatentsByTitle = async (
   }
 
   // Fetch patents with or without full text based on flag
-  const patents = filters.includeFullText 
+  const patents = filters.includeFullText
     ? await prisma.patent.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-      })
+      where,
+      orderBy: { createdAt: 'desc' },
+    })
     : await prisma.patent.findMany({
-        where,
-        select: {
-          id: true,
-          titleId: true,
-          documentNum: true,
-          applicationNum: true,
-          applicationDate: true,
-          publicationDate: true,
-          inventionTitle: true,
-          applicantName: true,
-          fiClassification: true,
-          publicationNum: true,
-          announcementNum: true,
-          registrationNum: true,
-          appealNum: true,
-          // Exclude abstract and claims for performance
-          otherInfo: true,
-          statusStage: true,
-          eventDetail: true,
-          documentUrl: true,
-          evaluationStatus: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+      where,
+      select: {
+        id: true,
+        titleId: true,
+        documentNum: true,
+        applicationNum: true,
+        applicationDate: true,
+        publicationDate: true,
+        inventionTitle: true,
+        applicantName: true,
+        fiClassification: true,
+        publicationNum: true,
+        announcementNum: true,
+        registrationNum: true,
+        appealNum: true,
+        // Exclude abstract and claims for performance
+        otherInfo: true,
+        statusStage: true,
+        eventDetail: true,
+        documentUrl: true,
+        evaluationStatus: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
   const total = patents.length;
   const evaluated = patents.filter((p: any) => p.evaluationStatus !== '未評価').length;
@@ -368,6 +368,7 @@ export const getPatentsByCompany = async (
   companyName: string,
   filters: {
     status?: 'evaluated' | 'unevaluated';
+    includeFullText?: boolean;
   }
 ) => {
   const where: any = {
@@ -380,19 +381,54 @@ export const getPatentsByCompany = async (
     where.evaluationStatus = '未評価';
   }
 
-  const patents = await prisma.patent.findMany({
-    where,
-    include: {
-      title: {
-        select: {
-          id: true,
-          titleNo: true,
-          titleName: true,
+  const patents = filters.includeFullText
+    ? await prisma.patent.findMany({
+      where,
+      include: {
+        title: {
+          select: {
+            id: true,
+            titleNo: true,
+            titleName: true,
+          },
         },
       },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+      orderBy: { createdAt: 'desc' },
+    })
+    : await prisma.patent.findMany({
+      where,
+      select: {
+        id: true,
+        titleId: true,
+        documentNum: true,
+        applicationNum: true,
+        applicationDate: true,
+        publicationDate: true,
+        inventionTitle: true,
+        applicantName: true,
+        fiClassification: true,
+        publicationNum: true,
+        announcementNum: true,
+        registrationNum: true,
+        appealNum: true,
+        // Exclude abstract and claims for performance
+        otherInfo: true,
+        statusStage: true,
+        eventDetail: true,
+        documentUrl: true,
+        evaluationStatus: true,
+        createdAt: true,
+        updatedAt: true,
+        title: {
+          select: {
+            id: true,
+            titleNo: true,
+            titleName: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
   const total = patents.length;
   const evaluated = patents.filter((p) => p.evaluationStatus !== '未評価').length;
@@ -465,6 +501,14 @@ export const importPatents = async (
         documentUrl: getData('bunkenUrl'),
         evaluationStatus: '未評価'
       };
+
+      // Debug: Log abstract and claims to verify they are being extracted
+      console.log(`📝 Patent ${documentNum}:`, {
+        abstractLength: patentData.abstract?.length || 0,
+        claimsLength: patentData.claims?.length || 0,
+        abstractPreview: patentData.abstract?.substring(0, 50) || 'NULL',
+        claimsPreview: patentData.claims?.substring(0, 50) || 'NULL'
+      });
 
       const existing = await prisma.patent.findFirst({
         where: {

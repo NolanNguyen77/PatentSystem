@@ -60,57 +60,143 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
       const reader = new FileReader();
       reader.onload = (event) => {
         try {
-          const text = event.target?.result as string;
-          const lines = text.trim().split('\n');
-          if (lines.length > 0) {
-            // Parse first line as header
-            const csvColumns = lines[0].split(',').map(col => col.trim());
-            setCsvColumns(csvColumns);
+          let text = event.target?.result as string;
 
-            // Parse remaining lines as data
-            // Parse remaining lines as data
-            const rows = lines.slice(1).map(line => {
-              // Split by comma, but ignore commas inside double quotes
-              const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
-              // Fallback for empty fields or complex cases, use a more robust parser if needed
-              // A simple regex might miss empty fields like ,, so let's use a better approach:
-
-              const parsedValues: string[] = [];
-              let currentVal = '';
-              let inQuotes = false;
-
-              for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                if (char === '"') {
-                  inQuotes = !inQuotes;
-                } else if (char === ',' && !inQuotes) {
-                  parsedValues.push(currentVal.trim().replace(/^"|"$/g, '')); // Remove surrounding quotes
-                  currentVal = '';
-                } else {
-                  currentVal += char;
-                }
-              }
-              parsedValues.push(currentVal.trim().replace(/^"|"$/g, '')); // Push the last value
-
-              const row: Record<string, string> = {};
-              csvColumns.forEach((col, index) => {
-                row[col] = parsedValues[index] || '';
-              });
-              return row;
-            });
-            setParsedRows(rows);
-            console.log(`✅ Parsed ${rows.length} rows from CSV`);
-
-            // Auto-map exact matches
-            const autoMapping: Record<string, string> = {};
-            systemFields.forEach(field => {
-              const exactMatch = csvColumns.find(col => col === field.label);
-              if (exactMatch) {
-                autoMapping[field.key] = exactMatch;
-              }
-            });
-            setColumnMapping(autoMapping);
+          // Remove BOM if present
+          if (text.charCodeAt(0) === 0xFEFF) {
+            text = text.slice(1);
           }
+
+          // CSV Parser that handles quoted fields with commas and newlines
+          const parseCSVLine = (line: string): string[] => {
+            const fields: string[] = [];
+            let currentField = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < line.length; i++) {
+              const char = line[i];
+              const nextChar = line[i + 1];
+
+              if (char === '"') {
+                if (inQuotes && nextChar === '"') {
+                  // Escaped quote
+                  currentField += '"';
+                  i++;
+                } else {
+                  // Toggle quote state
+                  inQuotes = !inQuotes;
+                }
+              } else if (char === ',' && !inQuotes) {
+                // End of field
+                fields.push(currentField.trim());
+                currentField = '';
+              } else {
+                currentField += char;
+              }
+            }
+            // Push last field
+            fields.push(currentField.trim());
+
+            return fields;
+          };
+
+          // Parse full CSV text handling multiline quoted fields
+          const parseFullCSV = (csvText: string): string[][] => {
+            const rows: string[][] = [];
+            let currentRow: string[] = [];
+            let currentField = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < csvText.length; i++) {
+              const char = csvText[i];
+              const nextChar = csvText[i + 1];
+
+              if (char === '"') {
+                if (inQuotes && nextChar === '"') {
+                  currentField += '"';
+                  i++;
+                } else {
+                  inQuotes = !inQuotes;
+                }
+              } else if (char === ',' && !inQuotes) {
+                currentRow.push(currentField.trim());
+                currentField = '';
+              } else if ((char === '\n' || char === '\r') && !inQuotes) {
+                if (char === '\r' && nextChar === '\n') {
+                  i++;
+                }
+                currentRow.push(currentField.trim());
+                if (currentRow.some(f => f)) {
+                  rows.push(currentRow);
+                }
+                currentRow = [];
+                currentField = '';
+              } else {
+                currentField += char;
+              }
+            }
+
+            // Push last row
+            if (currentField || currentRow.length > 0) {
+              currentRow.push(currentField.trim());
+              if (currentRow.some(f => f)) {
+                rows.push(currentRow);
+              }
+            }
+
+            return rows;
+          };
+
+          // Parse the CSV
+          const allRows = parseFullCSV(text);
+
+          if (allRows.length === 0) {
+            console.error('Empty CSV file');
+            return;
+          }
+
+          // First row is header
+          const csvColumns = allRows[0].filter(col => col && col.trim() !== '');
+          const expectedColumnCount = csvColumns.length;
+
+          console.log(`📋 CSV Header: ${expectedColumnCount} columns`);
+          setCsvColumns(csvColumns);
+
+          // Parse data rows (skip header)
+          const rows: Record<string, string>[] = [];
+
+          for (let i = 1; i < allRows.length; i++) {
+            const fields = allRows[i];
+
+            // Create row object
+            const row: Record<string, string> = {};
+            csvColumns.forEach((col, index) => {
+              row[col] = (fields[index] || '').trim();
+            });
+
+            rows.push(row);
+
+            console.log(`✅ Row ${i}:`, {
+              documentNum: row['文献番号'],
+              applicant: row['出願人/権利者']?.substring(0, 20),
+              fi: row['FI']?.substring(0, 30),
+              abstractPreview: row['要約']?.substring(0, 50) + '...',
+              claimsPreview: row['請求の範囲']?.substring(0, 50) + '...'
+            });
+          }
+
+          setParsedRows(rows);
+          console.log(`✅ Parsing complete: ${rows.length} patent rows`);
+
+          // Auto-map exact matches
+          const autoMapping: Record<string, string> = {};
+          systemFields.forEach(field => {
+            const exactMatch = csvColumns.find(col => col === field.label);
+            if (exactMatch) {
+              autoMapping[field.key] = exactMatch;
+            }
+          });
+          setColumnMapping(autoMapping);
         } catch (err) {
           console.error('Error parsing CSV:', err);
         }

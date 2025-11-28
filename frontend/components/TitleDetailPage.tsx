@@ -144,7 +144,13 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
     const dateColumns = getDateColumns();
 
     patents.forEach((patent: any, index: number) => {
-      const company = patent.applicant ?? patent.applicantName ?? patent.assignee ?? patent.owner ?? '不明';
+      let company = patent.applicant ?? patent.applicantName ?? patent.assignee ?? patent.owner ?? '';
+      
+      // Use "未設定" for patents without company name instead of skipping
+      if (!company || company.trim() === '') {
+        company = '（出願人未設定）';
+      }
+      
       const dateValue = getDateField(patent);
       const dateKey = formatDateKey(dateValue);
       
