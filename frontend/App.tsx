@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LoginPage } from './components/LoginPage';
 import { TitleListPage } from './components/TitleListPage';
+import { Toaster } from './components/ui/sonner';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -11,7 +12,7 @@ export default function App() {
   useEffect(() => {
     const token = localStorage.getItem('authToken');
     const savedUsername = localStorage.getItem('username');
-    
+
     if (token && savedUsername) {
       // Verify token is still valid (optional)
       setUsername(savedUsername);
@@ -52,6 +53,7 @@ export default function App() {
       ) : (
         <LoginPage onLogin={handleLogin} />
       )}
+      <Toaster />
     </>
   );
 }

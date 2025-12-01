@@ -11,6 +11,12 @@ export interface CreateEvaluationData {
   isPublic?: boolean;
 }
 
+export interface BatchEvaluationData {
+  patentId: string;
+  status: string;
+  comment?: string;
+}
+
 export const getEvaluationsByPatent = async (patentId: string) => {
   const evaluations = await prisma.evaluation.findMany({
     where: {
@@ -103,6 +109,96 @@ export const createEvaluation = async (
   return evaluation;
 };
 
+export const batchSaveEvaluations = async (
+  titleId: string,
+  evaluations: BatchEvaluationData[],
+  userId: string,
+  userPermission: string
+) => {
+  // Check permission
+  const canEval = await canEvaluate(userId, titleId, userPermission as any);
+  if (!canEval) {
+    throw new AppError('You do not have permission to evaluate patents in this title', 403);
+  }
+
+  // Get title settings
+  const title = await prisma.title.findUnique({
+    where: { id: titleId },
+  });
+
+  if (!title) {
+    throw new AppError('Title not found', 404);
+  }
+
+  const results = {
+    created: 0,
+    updated: 0,
+    unchanged: 0,
+  };
+
+  // Process each evaluation
+  await prisma.$transaction(async (tx) => {
+    for (const evalData of evaluations) {
+      // Check if patent exists
+      const patent = await tx.patent.findUnique({
+        where: { id: evalData.patentId },
+      });
+
+      if (!patent) {
+        console.warn(`Patent ${evalData.patentId} not found, skipping`);
+        continue;
+      }
+
+      // Check if user already has an evaluation for this patent
+      const existingEval = await tx.evaluation.findFirst({
+        where: {
+          patentId: evalData.patentId,
+          titleId,
+          userId,
+          isDeleted: false,
+        },
+      });
+
+      if (existingEval) {
+        // Update existing evaluation
+        await tx.evaluation.update({
+          where: { id: existingEval.id },
+          data: {
+            status: evalData.status,
+            comment: evalData.comment,
+          },
+        });
+        results.updated++;
+      } else {
+        // Create new evaluation
+        await tx.evaluation.create({
+          data: {
+            patentId: evalData.patentId,
+            titleId,
+            userId,
+            status: evalData.status,
+            comment: evalData.comment,
+            isPublic: false,
+          },
+        });
+        results.created++;
+      }
+
+      // Update patent evaluation status
+      // We update this regardless of mainEvaluation setting for now to ensure UI reflects the change
+      // In a multi-user environment, this might need refinement (e.g. only update if assignee)
+      if (evalData.status) {
+        await tx.patent.update({
+          where: { id: evalData.patentId },
+          data: { evaluationStatus: evalData.status },
+        });
+      }
+    }
+  });
+
+  return results;
+};
+
 export const updateEvaluation = async (
   id: string,
   data: Partial<CreateEvaluationData>,
@@ -165,4 +261,5 @@ export const deleteEvaluation = async (id: string, userId: string) => {
 
   return { message: 'Evaluation deleted successfully' };
 };
+
 

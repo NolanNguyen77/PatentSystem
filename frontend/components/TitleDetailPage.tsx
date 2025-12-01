@@ -27,8 +27,8 @@ interface TitleDetailPageProps {
   titleId?: string;
   onBack: () => void;
   onViewPatentDetails?: (
-    companyName: string, 
-    totalCount: number, 
+    companyName: string,
+    totalCount: number,
     titleData?: any,
     filterInfo?: {
       dateFilter: string;
@@ -72,7 +72,7 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
   // Helper function to format date based on period filter
   const formatDateKey = (dateStr: string | null): string => {
     if (!dateStr) return '日付未設定';
-    
+
     try {
       // Handle both ISO string and Date object
       let date: Date;
@@ -101,26 +101,26 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
         // Calculate weeks backwards from current week
         // Week starts on Sunday (0) and ends on Saturday (6)
         const now = new Date();
-        
+
         // Get the start of current week (Sunday)
         const currentWeekStart = new Date(now);
         currentWeekStart.setDate(now.getDate() - now.getDay());
         currentWeekStart.setHours(0, 0, 0, 0);
-        
+
         // Get the start of the week for the patent date
         const patentWeekStart = new Date(date);
         patentWeekStart.setDate(date.getDate() - date.getDay());
         patentWeekStart.setHours(0, 0, 0, 0);
-        
+
         // Calculate difference in weeks
         const diffTime = currentWeekStart.getTime() - patentWeekStart.getTime();
         const diffWeeks = Math.floor(diffTime / (7 * 24 * 60 * 60 * 1000));
-        
+
         // Week 01 is current week, Week 02 is last week, etc.
         const weekNumber = diffWeeks + 1;
-        
 
-        
+
+
         if (weekNumber < 1) {
           // Future dates go to "以前"
           return '以前';
@@ -128,7 +128,7 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
           // More than 20 weeks ago
           return '以前';
         }
-        
+
         return String(weekNumber).padStart(2, '0'); // 01-20
       }
     } catch (e) {
@@ -138,29 +138,33 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
     return '日付未設定';
   };
 
-  // Transform patents data based on filters
+  // Transform patent data for matrix view
   const transformPatentData = (patents: any[]) => {
-    const patentsByCompany = new Map<string, any>();
+    const patentsByCompany = new Map<string, {
+      id: number;
+      company: string;
+      total: number;
+      unEvaluated: number;
+      counts: { [key: string]: { count: number; evaluated: number } };
+    }>();
+
     const dateColumns = getDateColumns();
 
-    patents.forEach((patent: any, index: number) => {
-      let company = patent.applicant ?? patent.applicantName ?? patent.assignee ?? patent.owner ?? '';
-      
-      // Use "未設定" for patents without company name instead of skipping
+    patents.forEach(patent => {
+      let company = patent.applicantName;
+      // If company is empty/null, group under "Unknown"
       if (!company || company.trim() === '') {
         company = '（出願人未設定）';
       }
-      
+
       const dateValue = getDateField(patent);
       const dateKey = formatDateKey(dateValue);
-      
-
 
       if (!patentsByCompany.has(company)) {
-        const counts: { [key: string]: number } = {};
-        dateColumns.forEach(col => counts[col] = 0);
-        counts['日付未設定'] = 0;
-        counts['以前'] = 0;
+        const counts: { [key: string]: { count: number; evaluated: number } } = {};
+        dateColumns.forEach(col => counts[col] = { count: 0, evaluated: 0 });
+        counts['日付未設定'] = { count: 0, evaluated: 0 };
+        counts['以前'] = { count: 0, evaluated: 0 };
 
         patentsByCompany.set(company, {
           id: patentsByCompany.size + 1,
@@ -173,64 +177,95 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
 
       const companyData = patentsByCompany.get(company)!;
       companyData.total += 1;
-      
-      if (patent.evaluationStatus === '未評価') {
+
+      // Determine if patent is evaluated
+      // Consider evaluated if:
+      // 1. Global status is set (not '未評価')
+      // 2. OR User has explicitly set a status (checked via evaluations array)
+      // 3. OR User has provided a comment (even if status is '未評価')
+      const isEvaluated = (patent.evaluationStatus && patent.evaluationStatus !== '未評価') ||
+        (patent.evaluations && patent.evaluations.length > 0 &&
+          (patent.evaluations[0].status !== '未評価' || !!patent.evaluations[0].comment));
+
+      if (!isEvaluated) {
         companyData.unEvaluated += 1;
       }
 
+      // Helper to increment counts
+      const incrementCount = (key: string) => {
+        if (companyData.counts[key]) {
+          companyData.counts[key].count += 1;
+          if (isEvaluated) {
+            companyData.counts[key].evaluated += 1;
+          }
+        }
+      };
+
       // Increment count for this date key
       if (dateKey === '日付未設定') {
-        companyData.counts['日付未設定'] += 1;
+        incrementCount('日付未設定');
       } else if (dateKey === '以前') {
-        companyData.counts['以前'] += 1;
+        incrementCount('以前');
       } else if (companyData.counts[dateKey] !== undefined) {
-        companyData.counts[dateKey] += 1;
+        incrementCount(dateKey);
       } else {
+        // Handle out of range dates based on period filter
+        if (periodFilter === 'year') {
+          const year = parseInt(dateKey.replace("'", ""));
+          const minYear = parseInt(dateColumns[dateColumns.length - 1].replace("'", ""));
+          const maxYear = parseInt(dateColumns[0].replace("'", ""));
 
+          if (year < minYear) incrementCount('以前');
+          // Future dates are ignored or could be added to a "Future" column if needed
+        } else {
+          // For other filters, if it doesn't match a column, put in "以前" if it's old, or ignore
+          // Simple fallback: check if date is older than the last column
+          incrementCount('以前');
+        }
       }
     });
 
     return Array.from(patentsByCompany.values());
   };
 
+  const fetchPatents = async () => {
+    try {
+      setIsLoading(true);
+      console.log('🔄 Fetching patents for title:', titleNo);
+      // Don't include full text (abstract/claims) for performance
+      const result = await patentAPI.getByTitle(titleNo, { includeFullText: false });
+
+      const payload = result.data?.data ?? result.data ?? result;
+
+      if (payload) {
+        if (payload.titleId) {
+          setResolvedTitleId(payload.titleId);
+        }
+
+        if (payload.patents) {
+          const patentsArray = Array.isArray(payload.patents) ? payload.patents : (Array.isArray(payload) ? payload : []);
+          setAllPatents(patentsArray);
+
+          // Transform data based on current filters
+          const transformed = transformPatentData(patentsArray);
+          setPatentData(transformed);
+        }
+      } else {
+        console.warn('⚠️ No patents found', payload);
+        setPatentData([]);
+      }
+    } catch (err) {
+      console.error('❌ Error fetching patents:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch patents');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Fetch patents from API on component mount
   useEffect(() => {
-    const fetchPatentsByTitle = async () => {
-      try {
-        setIsLoading(true);
-        console.log('🔄 Fetching patents for title:', titleNo);
-        // Don't include full text (abstract/claims) for performance
-        const result = await patentAPI.getByTitle(titleNo, { includeFullText: false });
-
-        const payload = result.data?.data ?? result.data ?? result;
-
-        if (payload) {
-          if (payload.titleId) {
-            setResolvedTitleId(payload.titleId);
-          }
-
-          if (payload.patents) {
-            const patentsArray = Array.isArray(payload.patents) ? payload.patents : (Array.isArray(payload) ? payload : []);
-            setAllPatents(patentsArray);
-            
-            // Transform data based on current filters
-            const transformed = transformPatentData(patentsArray);
-            setPatentData(transformed);
-          }
-        } else {
-          console.warn('⚠️ No patents found', payload);
-          setPatentData([]);
-        }
-      } catch (err) {
-        console.error('❌ Error fetching patents:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch patents');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     if (titleNo) {
-      fetchPatentsByTitle();
+      fetchPatents();
     }
   }, [titleNo]);
 
@@ -298,8 +333,8 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
               size="sm"
               className="text-sm h-8 transition-all duration-200 text-green-600 border-green-200 hover:bg-green-100 hover:border-green-300"
             >
-              <FileText className="w-4 h-4 mr-1" />
-              出力
+              <Download className="w-4 h-4 mr-1" />
+              CSV出力
             </Button>
             <div className="w-px h-5 bg-gray-300"></div>
             <Button
@@ -307,14 +342,13 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
               size="sm"
               className="text-sm h-8 transition-all duration-200 text-blue-600 border-blue-200 hover:bg-blue-100 hover:border-blue-300"
             >
-              <Search className="w-4 h-4 mr-1" />
-              案件の検索
+              <RefreshCw className="w-4 h-4 mr-1" />
+              更新
             </Button>
             <div className="w-px h-5 bg-gray-300"></div>
             <Button
-              variant="outline"
               size="sm"
-              className="text-sm h-8 transition-all duration-200 text-yellow-600 border-yellow-200 hover:bg-yellow-100 hover:border-yellow-300"
+              className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 hover:shadow-md text-white text-sm h-8 border-0 transition-all duration-200"
               onClick={() => setIsAssignmentDialogOpen(true)}
             >
               <Users className="w-4 h-4 mr-1" />
@@ -339,65 +373,35 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
         </div>
       </div>
 
-      {/* Filter Bar */}
+      {/* Filters Section */}
       <div className="bg-white border-b shadow-sm">
-        <div className="max-w-full px-6 py-3 space-y-3">
-          {/* Row 1: View Mode and Data Filters */}
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
-              <span className="text-sm">表示モード:</span>
-              <Select value={viewMode} onValueChange={setViewMode}>
-                <SelectTrigger className="w-[200px] h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="applicant-header" disabled className="bg-gray-200">出願人別</SelectItem>
-                  <SelectItem value="applicant">出願人別</SelectItem>
-                  <SelectItem value="applicant-normalized">出願人別（名寄せ）</SelectItem>
-                  <SelectItem value="ipc">IPC分類別</SelectItem>
-                  <SelectItem value="evaluation">評価別</SelectItem>
-                  <SelectItem value="assignee" className="text-red-600">担当者別</SelectItem>
-                  <SelectItem value="inventor">発明者別</SelectItem>
-                  <SelectItem value="primary-inventor">筆頭発明者別</SelectItem>
-                  <SelectItem value="sdi">SDI別</SelectItem>
-                  <SelectItem value="country">国コード別</SelectItem>
-                  <SelectItem value="status">ステータス別</SelectItem>
-                  <SelectItem value="status-normalized">ステータス（名寄せ）別</SelectItem>
-                  <SelectItem value="ai-patent">AI判定結果別(数値特許)</SelectItem>
-                  <SelectItem value="ai-natural">AI判定結果別(自然文)</SelectItem>
-                  <SelectItem value="company" className="pl-8">株式会社インテリジェント...</SelectItem>
-                </SelectContent>
-              </Select>
+        <div className="max-w-full px-6 py-4 space-y-4">
+          {/* Row 1: Search and Settings */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="出願人・権利者名で検索..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9 text-sm border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+              />
             </div>
 
-            <div className="h-6 w-px bg-gray-300"></div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-sm">データ:</span>
-              <Select defaultValue="all">
-                <SelectTrigger className="w-[160px] h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全てのデータ</SelectItem>
-                  <SelectItem value="evaluated">評価済のみ</SelectItem>
-                  <SelectItem value="not-evaluated">未評価のみ</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-sm">ファミリー:</span>
-              <Select defaultValue="all-family">
-                <SelectTrigger className="w-[160px] h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-family">全てのファミリー</SelectItem>
-                  <SelectItem value="japan">日本のみ</SelectItem>
-                  <SelectItem value="foreign">外国のみ</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 font-medium">表示モード:</span>
+                <Select value={viewMode} onValueChange={setViewMode}>
+                  <SelectTrigger className="w-[180px] h-9 text-sm border-gray-300">
+                    <SelectValue placeholder="表示モードを選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="applicant">出願人・権利者別</SelectItem>
+                    <SelectItem value="fi">FI別</SelectItem>
+                    <SelectItem value="fterm">Fターム別</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
@@ -573,7 +577,7 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                   </TableCell>
                   <TableCell className="bg-blue-50 text-center border-r">
                     {(() => {
-                      const count = patentData.reduce((sum, item) => sum + (item.counts?.['日付未設定'] || 0), 0);
+                      const count = patentData.reduce((sum, item) => sum + (item.counts?.['日付未設定']?.count || 0), 0);
                       return count > 0 ? (
                         <button
                           className="text-blue-600 hover:underline text-xs font-semibold"
@@ -593,7 +597,7 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                   </TableCell>
                   <TableCell className="bg-blue-50 text-center border-r">
                     {(() => {
-                      const count = patentData.reduce((sum, item) => sum + (item.counts?.['以前'] || 0), 0);
+                      const count = patentData.reduce((sum, item) => sum + (item.counts?.['以前']?.count || 0), 0);
                       return count > 0 ? (
                         <button
                           className="text-blue-600 hover:underline text-xs font-semibold"
@@ -612,7 +616,7 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                     })()}
                   </TableCell>
                   {dateColumns.map((col) => {
-                    const total = patentData.reduce((sum, item) => sum + (item.counts?.[col] || 0), 0);
+                    const total = patentData.reduce((sum, item) => sum + (item.counts?.[col]?.count || 0), 0);
                     return (
                       <TableCell key={col} className="bg-blue-50 text-center border-r">
                         {total > 0 ? (
@@ -649,11 +653,11 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                         onChange={() => handleRowSelect(item.id)}
                       />
                     </TableCell>
-                    <TableCell 
-                      className="group-hover:bg-orange-50 transition-colors" 
-                      style={{ 
-                        position: 'sticky', 
-                        left: '48px', 
+                    <TableCell
+                      className="group-hover:bg-orange-50 transition-colors"
+                      style={{
+                        position: 'sticky',
+                        left: '48px',
                         backgroundColor: selectedRows.includes(item.id) ? '#dbeafe' : 'white',
                         borderRight: '4px solid #6b7280'
                       }}
@@ -672,49 +676,64 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                       <span className="text-sm">{item.unEvaluated || 0}</span>
                     </TableCell>
                     <TableCell className="group-hover:bg-orange-50 text-center border-r transition-colors">
-                      {item.counts?.['日付未設定'] > 0 ? (
+                      {item.counts?.['日付未設定']?.count > 0 ? (
                         <button
                           className="text-blue-600 hover:underline text-xs"
                           onClick={() => onViewPatentDetails?.(
-                            item.company, 
-                            item.counts?.['日付未設定'], 
+                            item.company,
+                            item.counts?.['日付未設定']?.count,
                             { titleNo, titleName },
                             { dateFilter, periodFilter, dateColumn: '日付未設定' }
                           )}
                         >
-                          {item.counts?.['日付未設定']}
+                          {item.counts?.['日付未設定']?.count}
                         </button>
                       ) : (
                         <span className="text-xs text-gray-400">-</span>
                       )}
                     </TableCell>
                     <TableCell className="group-hover:bg-orange-50 text-center border-r transition-colors">
-                      {item.counts?.['以前'] > 0 ? (
+                      {item.counts?.['以前']?.count > 0 ? (
                         <button
                           className="text-blue-600 hover:underline text-xs"
                           onClick={() => onViewPatentDetails?.(
-                            item.company, 
-                            item.counts?.['以前'], 
+                            item.company,
+                            item.counts?.['以前']?.count,
                             { titleNo, titleName },
                             { dateFilter, periodFilter, dateColumn: '以前' }
                           )}
                         >
-                          {item.counts?.['以前']}
+                          {item.counts?.['以前']?.count}
                         </button>
                       ) : (
                         <span className="text-xs text-gray-400">-</span>
                       )}
                     </TableCell>
                     {dateColumns.map((col) => {
-                      const count = item.counts?.[col] || 0;
+                      const cellData = item.counts?.[col];
+                      const count = cellData?.count || 0;
+                      const evaluated = cellData?.evaluated || 0;
+                      const isPartiallyEvaluated = count > 0 && evaluated > 0;
+                      const isFullyEvaluated = count > 0 && evaluated === count;
+
+                      let cellClass = "group-hover:bg-orange-50 text-center border-r transition-colors";
+                      if (isFullyEvaluated) {
+                        cellClass += " bg-orange-200 font-bold";
+                      } else if (isPartiallyEvaluated) {
+                        cellClass += " bg-yellow-100";
+                      }
+
                       return (
-                        <TableCell key={col} className="group-hover:bg-orange-50 text-center border-r transition-colors">
+                        <TableCell
+                          key={col}
+                          className={cellClass}
+                        >
                           {count > 0 ? (
                             <button
                               className="text-blue-600 hover:underline text-xs"
                               onClick={() => onViewPatentDetails?.(
-                                item.company, 
-                                count, 
+                                item.company,
+                                count,
                                 { titleNo, titleName },
                                 { dateFilter, periodFilter, dateColumn: col }
                               )}
@@ -768,6 +787,7 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
         titleId={resolvedTitleId || titleId}
         patents={allPatents}
         hideRangeSelector={true}
+        onAssignmentComplete={fetchPatents}
       />
     </div>
   );

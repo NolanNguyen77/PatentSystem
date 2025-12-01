@@ -70,6 +70,7 @@ export const getPatentsByTitle = async (
     search?: string;
     applicant?: string;
     includeFullText?: boolean; // New parameter to control if we include abstract/claims
+    userId?: string;
   }
 ) => {
   let titleId = titleIdentifier;
@@ -110,10 +111,18 @@ export const getPatentsByTitle = async (
     where.applicantName = filters.applicant;
   }
 
+  const includeEvaluations = filters.userId ? {
+    where: { userId: filters.userId, isDeleted: false },
+    select: { status: true, comment: true }
+  } : undefined;
+
   // Fetch patents with or without full text based on flag
   const patents = filters.includeFullText
     ? await prisma.patent.findMany({
       where,
+      include: {
+        evaluations: includeEvaluations
+      },
       orderBy: { createdAt: 'desc' },
     })
     : await prisma.patent.findMany({
@@ -140,6 +149,10 @@ export const getPatentsByTitle = async (
         evaluationStatus: true,
         createdAt: true,
         updatedAt: true,
+        evaluations: includeEvaluations ? {
+          where: { userId: filters.userId, isDeleted: false },
+          select: { status: true, comment: true }
+        } : undefined,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -369,6 +382,7 @@ export const getPatentsByCompany = async (
   filters: {
     status?: 'evaluated' | 'unevaluated';
     includeFullText?: boolean;
+    userId?: string;
   }
 ) => {
   const where: any = {
@@ -381,6 +395,11 @@ export const getPatentsByCompany = async (
     where.evaluationStatus = '未評価';
   }
 
+  const includeEvaluations = filters.userId ? {
+    where: { userId: filters.userId, isDeleted: false },
+    select: { status: true, comment: true }
+  } : undefined;
+
   const patents = filters.includeFullText
     ? await prisma.patent.findMany({
       where,
@@ -392,6 +411,7 @@ export const getPatentsByCompany = async (
             titleName: true,
           },
         },
+        evaluations: includeEvaluations
       },
       orderBy: { createdAt: 'desc' },
     })
@@ -411,7 +431,6 @@ export const getPatentsByCompany = async (
         announcementNum: true,
         registrationNum: true,
         appealNum: true,
-        // Exclude abstract and claims for performance
         otherInfo: true,
         statusStage: true,
         eventDetail: true,
@@ -426,6 +445,10 @@ export const getPatentsByCompany = async (
             titleName: true,
           },
         },
+        evaluations: includeEvaluations ? {
+          where: { userId: filters.userId, isDeleted: false },
+          select: { status: true, comment: true }
+        } : undefined,
       },
       orderBy: { createdAt: 'desc' },
     });

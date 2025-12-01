@@ -375,6 +375,15 @@ const realCompanyAPI = {
   },
 };
 
+const realEvaluationAPI = {
+  batchSave: async (titleId: string, evaluations: Array<{ patentId: string; status: string; comment?: string }>) => {
+    return apiCall<{ message: string; created: number; updated: number; unchanged: number }>('/evaluations/batch', {
+      method: 'POST',
+      body: JSON.stringify({ titleId, evaluations }),
+    });
+  },
+};
+
 // ==================== Export APIs with Mock/Real Toggle ====================
 
 // Switch between mock and real API based on environment variable
@@ -386,6 +395,7 @@ export const mergeAPI = USE_MOCK_API ? mockAPI.merge : realMergeAPI;
 export const attachmentAPI = USE_MOCK_API ? mockAPI.attachment : realAttachmentAPI;
 export const userAPI = USE_MOCK_API ? mockAPI.user : realUserAPI;
 export const companyAPI = USE_MOCK_API ? mockAPI.company : realCompanyAPI;
+export const evaluationAPI = realEvaluationAPI;
 
 // Export all APIs as default
 export default {
@@ -397,6 +407,7 @@ export default {
   attachment: attachmentAPI,
   user: userAPI,
   company: companyAPI,
+  evaluation: evaluationAPI,
 };
 
 // Log current API mode

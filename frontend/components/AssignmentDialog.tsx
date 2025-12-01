@@ -12,6 +12,7 @@ import {
   DialogDescription,
 } from './ui/dialog';
 import { userAPI, titleAPI, patentAPI } from '../services/api';
+import { toast } from 'sonner';
 
 interface User {
   id: string;
@@ -37,6 +38,7 @@ interface AssignmentDialogProps {
   responsible?: string;
   responsibleId?: string;
   hideRangeSelector?: boolean;
+  hideAddMode?: boolean;
 }
 
 export function AssignmentDialog({
@@ -49,12 +51,13 @@ export function AssignmentDialog({
   onAssignmentComplete,
   responsible,
   responsibleId,
-  hideRangeSelector = false
+  hideRangeSelector = false,
+  hideAddMode = false
 }: AssignmentDialogProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [allChecked, setAllChecked] = useState(false);
-  const [assignmentMode, setAssignmentMode] = useState('add');
+  const [assignmentMode, setAssignmentMode] = useState(hideAddMode ? 'replace' : 'add');
   const [rangeFrom, setRangeFrom] = useState('1');
   const [rangeTo, setRangeTo] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
@@ -68,7 +71,7 @@ export function AssignmentDialog({
       fetchUsers();
       setRangeTo(String(totalCount || 1));
     }
-  }, [isOpen, totalCount]);
+  }, [isOpen, totalCount, titleId]);
 
   const fetchUsers = async () => {
     setIsLoading(true);
@@ -199,7 +202,7 @@ export function AssignmentDialog({
 
     // Validate
     if (assignmentMode !== 'remove' && selectedUsers.length === 0) {
-      alert('ユーザを選択してください');
+      toast.error('ユーザを選択してください');
       return;
     }
 
@@ -207,14 +210,14 @@ export function AssignmentDialog({
     let patentsInRange = patents;
     if (!hideRangeSelector) {
       if (from > to || from < 1 || to > totalCount) {
-        alert('有効な範囲を指定してください');
+        toast.error('有効な範囲を指定してください');
         return;
       }
       patentsInRange = patents.slice(from - 1, to);
     }
 
     if (patentsInRange.length === 0) {
-      alert('対象の案件がありません');
+      toast.error('対象の案件がありません');
       return;
     }
 
@@ -228,11 +231,11 @@ export function AssignmentDialog({
       );
 
       if (result.error) {
-        alert(`エラー: ${result.error}`);
+        toast.error(`エラー: ${result.error}`);
       } else {
         const modeText = assignmentMode === 'add' ? '追加' :
           assignmentMode === 'replace' ? '置き換え' : '削除';
-        alert(`担当者の${modeText}が完了しました（${patentsInRange.length}件）`);
+        toast.success(`担当者の${modeText}が完了しました（${patentsInRange.length}件）`);
 
         // Refresh user list to update counts
         await fetchUsers();
@@ -268,7 +271,7 @@ export function AssignmentDialog({
       }
     } catch (err) {
       console.error('Assignment failed:', err);
-      alert('処理中にエラーが発生しました');
+      toast.error('処理中にエラーが発生しました');
     } finally {
       setIsExecuting(false);
     }
@@ -288,7 +291,7 @@ export function AssignmentDialog({
             </DialogTitle>
           </div>
           <DialogDescription className="sr-only">
-            担当者を一括で設定・管理するためのダイアログです。
+            担当者を設定・管理するためのダイアログです。
           </DialogDescription>
         </DialogHeader>
 
@@ -375,12 +378,14 @@ export function AssignmentDialog({
           {/* Assignment Options */}
           <div className="border-2 border-orange-300 rounded-lg p-4 space-y-3 bg-orange-50/30">
             <RadioGroup value={assignmentMode} onValueChange={setAssignmentMode}>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="add" id="add" />
-                <Label htmlFor="add" className="text-sm cursor-pointer">
-                  指定したユーザを担当者として追加する
-                </Label>
-              </div>
+              {!hideAddMode && (
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="add" id="add" />
+                  <Label htmlFor="add" className="text-sm cursor-pointer">
+                    指定したユーザを担当者として追加する
+                  </Label>
+                </div>
+              )}
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="replace" id="replace" />
                 <Label htmlFor="replace" className="text-sm cursor-pointer">

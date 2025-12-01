@@ -25,6 +25,7 @@ export const getPatentsByTitleController = async (
       search: req.query.search as string | undefined,
       applicant: req.query.applicant as string | undefined,
       includeFullText: req.query.includeFullText === 'true',
+      userId: req.user?.id,
     };
 
     const result = await getPatentsByTitle(req.params.id, filters);
@@ -258,6 +259,7 @@ export const getPatentsByCompanyController = async (
     const filters = {
       status: req.query.status as 'evaluated' | 'unevaluated' | undefined,
       includeFullText: req.query.includeFullText === 'true',
+      userId: req.user?.id,
     };
 
     const result = await getPatentsByCompany(companyName, filters);

@@ -4141,3 +4141,109 @@ html {
   scrollbar-width: thin;
   scrollbar-color: #64748b #e2e8f0;
 }
+/* For
+ce scrollbar to always show in Edge/Chrome */
+.overflow-y-auto {
+  overflow-y: scroll !important; /* Force scrollbar to always show */
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e0 #f7fafc;
+}
+
+.overflow-y-auto::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: #f7fafc;
+  border-radius: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 4px;
+  border: 2px solid #f7fafc;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+/* Specific styles for gray background text areas */
+.bg-gray-50.overflow-y-auto::-webkit-scrollbar-track {
+  background: #f9fafb;
+}
+
+.bg-gray-50.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #9ca3af;
+  border: 2px solid #f9fafb;
+}
+
+.bg-gray-50.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Custom scrollbar styles for patent detail sections */
+.patent-abstract-scroll,
+.patent-claims-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #9ca3af #f3f4f6;
+}
+
+.patent-abstract-scroll::-webkit-scrollbar,
+.patent-claims-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.patent-abstract-scroll::-webkit-scrollbar-track,
+.patent-claims-scroll::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.patent-abstract-scroll::-webkit-scrollbar-thumb,
+.patent-claims-scroll::-webkit-scrollbar-thumb {
+  background: #9ca3af;
+  border-radius: 4px;
+}
+
+.patent-abstract-scroll::-webkit-scrollbar-thumb:hover,
+.patent-claims-scroll::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Force scrollbar to always be visible */
+.patent-abstract-scroll::-webkit-scrollbar,
+.patent-claims-scroll::-webkit-scrollbar {
+  -webkit-appearance: none;
+}
+
+/* Scrollbar for patent info table (特許情報) */
+.patent-info-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #9ca3af #f3f4f6;
+}
+
+.patent-info-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.patent-info-scroll::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.patent-info-scroll::-webkit-scrollbar-thumb {
+  background: #9ca3af;
+  border-radius: 4px;
+}
+
+.patent-info-scroll::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+.patent-info-scroll::-webkit-scrollbar {
+  -webkit-appearance: none;
+}
