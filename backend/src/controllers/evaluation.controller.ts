@@ -35,6 +35,16 @@ export const createEvaluationController = async (
 
     const evaluation = await createEvaluation(req.body, req.user.id, req.user.permission);
 
+    if (!evaluation) {
+      // Evaluation was skipped (e.g. status was '未評価')
+      res.status(200).json({
+        data: {
+          message: 'Evaluation skipped (status is Unevaluated)',
+        },
+      });
+      return;
+    }
+
     await logActivity(
       req.user.id,
       'create',
@@ -115,7 +125,28 @@ export const updateEvaluationController = async (
       return;
     }
 
-    const evaluation = await updateEvaluation(req.params.id, req.body, req.user.id);
+    const result = await updateEvaluation(req.params.id, req.body, req.user.id);
+
+    if ('deleted' in result) {
+      await logActivity(
+        req.user.id,
+        'delete',
+        'evaluation',
+        result.id,
+        'Deleted evaluation (status changed to Unevaluated)',
+        req.ip,
+        result.titleId
+      );
+
+      res.json({
+        data: {
+          message: 'Evaluation deleted successfully (status changed to Unevaluated)',
+        },
+      });
+      return;
+    }
+
+    const evaluation = result;
 
     await logActivity(
       req.user.id,

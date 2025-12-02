@@ -60,6 +60,11 @@ export const createEvaluation = async (
     throw new AppError('You do not have permission to evaluate this patent', 403);
   }
 
+  // If status is '未評価', DO NOT create evaluation
+  if (data.status === '未評価') {
+    return null;
+  }
+
   // Check if patent exists
   const patent = await prisma.patent.findUnique({
     where: { id: data.patentId },
@@ -88,6 +93,7 @@ export const createEvaluation = async (
 
   const evaluation = await prisma.evaluation.create({
     data: {
+      // gán dữ liệu nhập vào database
       patentId: data.patentId,
       titleId: data.titleId,
       userId,
@@ -107,6 +113,66 @@ export const createEvaluation = async (
   }
 
   return evaluation;
+};
+
+// ... batchSaveEvaluations is already fixed ...
+
+export const updateEvaluation = async (
+  id: string,
+  data: Partial<CreateEvaluationData>,
+  userId: string
+) => {
+  const evaluation = await prisma.evaluation.findUnique({
+    where: { id },
+    include: { patent: { include: { title: true } } },
+  });
+
+  if (!evaluation) {
+    throw new AppError('Evaluation not found', 404);
+  }
+
+  // Only owner can update
+  if (evaluation.userId !== userId) {
+    throw new AppError('You can only update your own evaluations', 403);
+  }
+
+  // If status is changed to '未評価', HARD DELETE the evaluation
+  if (data.status === '未評価') {
+    await prisma.evaluation.delete({
+      where: { id },
+    });
+
+    // Update patent status if needed (e.g. revert to Unevaluated if this was the main eval)
+    // For simplicity, we set it to '未評価' if main evaluation
+    if (evaluation.patent.title.mainEvaluation) {
+      await prisma.patent.update({
+        where: { id: evaluation.patentId },
+        data: { evaluationStatus: '未評価' },
+      });
+    }
+
+    return { deleted: true, id, titleId: evaluation.titleId };
+  }
+
+  const updated = await prisma.evaluation.update({
+    where: { id },
+    data: {
+      status: data.status,
+      comment: data.comment,
+      score: data.score,
+      isPublic: data.isPublic,
+    },
+  });
+
+  // Update patent status if main evaluation
+  if (evaluation.patent.title.mainEvaluation && data.status) {
+    await prisma.patent.update({
+      where: { id: evaluation.patentId },
+      data: { evaluationStatus: data.status },
+    });
+  }
+
+  return updated;
 };
 
 export const batchSaveEvaluations = async (
@@ -159,34 +225,43 @@ export const batchSaveEvaluations = async (
         },
       });
 
-      if (existingEval) {
-        // Update existing evaluation
-        await tx.evaluation.update({
-          where: { id: existingEval.id },
-          data: {
-            status: evalData.status,
-            comment: evalData.comment,
-          },
-        });
-        results.updated++;
+      if (evalData.status === '未評価') {
+        if (existingEval) {
+          // If status is changed to '未評価', HARD DELETE the evaluation
+          await tx.evaluation.delete({
+            where: { id: existingEval.id },
+          });
+          results.updated++;
+        }
+        // If no existing evaluation, DO NOTHING (do not create a record for '未評価')
       } else {
-        // Create new evaluation
-        await tx.evaluation.create({
-          data: {
-            patentId: evalData.patentId,
-            titleId,
-            userId,
-            status: evalData.status,
-            comment: evalData.comment,
-            isPublic: false,
-          },
-        });
-        results.created++;
+        if (existingEval) {
+          // Update existing evaluation
+          await tx.evaluation.update({
+            where: { id: existingEval.id },
+            data: {
+              status: evalData.status,
+              comment: evalData.comment,
+              isDeleted: false,
+            },
+          });
+          results.updated++;
+        } else {
+          // Create new evaluation
+          await tx.evaluation.create({
+            data: {
+              patentId: evalData.patentId,
+              titleId,
+              userId,
+              status: evalData.status,
+              comment: evalData.comment,
+              isPublic: false,
+            },
+          });
+          results.created++;
+        }
       }
-
       // Update patent evaluation status
-      // We update this regardless of mainEvaluation setting for now to ensure UI reflects the change
-      // In a multi-user environment, this might need refinement (e.g. only update if assignee)
       if (evalData.status) {
         await tx.patent.update({
           where: { id: evalData.patentId },
@@ -199,45 +274,7 @@ export const batchSaveEvaluations = async (
   return results;
 };
 
-export const updateEvaluation = async (
-  id: string,
-  data: Partial<CreateEvaluationData>,
-  userId: string
-) => {
-  const evaluation = await prisma.evaluation.findUnique({
-    where: { id },
-    include: { patent: { include: { title: true } } },
-  });
 
-  if (!evaluation) {
-    throw new AppError('Evaluation not found', 404);
-  }
-
-  // Only owner can update
-  if (evaluation.userId !== userId) {
-    throw new AppError('You can only update your own evaluations', 403);
-  }
-
-  const updated = await prisma.evaluation.update({
-    where: { id },
-    data: {
-      status: data.status,
-      comment: data.comment,
-      score: data.score,
-      isPublic: data.isPublic,
-    },
-  });
-
-  // Update patent status if main evaluation
-  if (evaluation.patent.title.mainEvaluation && data.status) {
-    await prisma.patent.update({
-      where: { id: evaluation.patentId },
-      data: { evaluationStatus: data.status },
-    });
-  }
-
-  return updated;
-};
 
 export const deleteEvaluation = async (id: string, userId: string) => {
   const evaluation = await prisma.evaluation.findUnique({

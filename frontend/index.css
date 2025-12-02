@@ -4116,134 +4116,81 @@ html {
   }
 }
 
-/* Custom scrollbar styles for better visibility */
-/* Webkit (Chrome, Safari, Edge) scrollbar */
-.scrollbar-custom::-webkit-scrollbar {
-  width: 10px;
+
+/* SCROLLABLE BOX - Complete standalone CSS, no Tailwind needed */
+.scrollable-patent-box {
+  /* Box styling */
+  font-size: 0.875rem;
+  background-color: #f9fafb;
+  padding: 0.75rem;
+  border-radius: 0.25rem;
+  height: 250px;
+  border: 1px solid #e5e7eb;
+  white-space: pre-wrap;
+  line-height: 1.625;
+  word-break: break-word;
+
+  /* Scrollbar behavior */
+  overflow-y: auto !important;
+
+  /* Firefox scrollbar */
+  scrollbar-width: thin !important;
+  scrollbar-color: #9ca3af #f3f4f6 !important;
 }
 
-.scrollbar-custom::-webkit-scrollbar-track {
-  background: #e2e8f0;
-  border-radius: 5px;
+/* Webkit scrollbar */
+.scrollable-patent-box::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
 }
 
-.scrollbar-custom::-webkit-scrollbar-thumb {
-  background: #64748b;
-  border-radius: 5px;
+.scrollable-patent-box::-webkit-scrollbar-track {
+  background: #f3f4f6 !important;
+  border-radius: 4px !important;
 }
 
-.scrollbar-custom::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+.scrollable-patent-box::-webkit-scrollbar-thumb {
+  background-color: #9ca3af !important;
+  border-radius: 4px !important;
+  border: 2px solid #f3f4f6 !important;
 }
 
-/* Firefox scrollbar */
-.scrollbar-custom {
-  scrollbar-width: thin;
-  scrollbar-color: #64748b #e2e8f0;
-}
-/* For
-ce scrollbar to always show in Edge/Chrome */
-.overflow-y-auto {
-  overflow-y: scroll !important; /* Force scrollbar to always show */
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e0 #f7fafc;
+.scrollable-patent-box::-webkit-scrollbar-thumb:hover {
+  background-color: #6b7280 !important;
 }
 
-.overflow-y-auto::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+/* Patent Info Box - Fixed height container */
+.patent-info-box {
+  width: 350px;
+  min-width: 350px;
+  max-width: 350px;
+  height: 585px;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background-color: #ffffff;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.overflow-y-auto::-webkit-scrollbar-track {
-  background: #f7fafc;
-  border-radius: 4px;
+/* Evaluation Box - Fixed height to match patent info */
+.evaluation-box {
+  height: 585px;
+  border: 1px solid #fed7aa;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  background-color: #fffbf5;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-.overflow-y-auto::-webkit-scrollbar-thumb {
-  background: #cbd5e0;
-  border-radius: 4px;
-  border: 2px solid #f7fafc;
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  background: #a0aec0;
-}
-
-/* Specific styles for gray background text areas */
-.bg-gray-50.overflow-y-auto::-webkit-scrollbar-track {
-  background: #f9fafb;
-}
-
-.bg-gray-50.overflow-y-auto::-webkit-scrollbar-thumb {
-  background: #9ca3af;
-  border: 2px solid #f9fafb;
-}
-
-.bg-gray-50.overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
-}
-
-/* Custom scrollbar styles for patent detail sections */
-.patent-abstract-scroll,
-.patent-claims-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: #9ca3af #f3f4f6;
-}
-
-.patent-abstract-scroll::-webkit-scrollbar,
-.patent-claims-scroll::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.patent-abstract-scroll::-webkit-scrollbar-track,
-.patent-claims-scroll::-webkit-scrollbar-track {
-  background: #f3f4f6;
-  border-radius: 4px;
-}
-
-.patent-abstract-scroll::-webkit-scrollbar-thumb,
-.patent-claims-scroll::-webkit-scrollbar-thumb {
-  background: #9ca3af;
-  border-radius: 4px;
-}
-
-.patent-abstract-scroll::-webkit-scrollbar-thumb:hover,
-.patent-claims-scroll::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
-}
-
-/* Force scrollbar to always be visible */
-.patent-abstract-scroll::-webkit-scrollbar,
-.patent-claims-scroll::-webkit-scrollbar {
-  -webkit-appearance: none;
-}
-
-/* Scrollbar for patent info table (特許情報) */
-.patent-info-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: #9ca3af #f3f4f6;
-}
-
-.patent-info-scroll::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.patent-info-scroll::-webkit-scrollbar-track {
-  background: #f3f4f6;
-  border-radius: 4px;
-}
-
-.patent-info-scroll::-webkit-scrollbar-thumb {
-  background: #9ca3af;
-  border-radius: 4px;
-}
-
-.patent-info-scroll::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
-}
-
-.patent-info-scroll::-webkit-scrollbar {
-  -webkit-appearance: none;
+/* Patent Info Content Area - scrollable when content overflows */
+.patent-info-content {
+  flex: 1;
+  overflow-y: auto;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.875rem;
 }

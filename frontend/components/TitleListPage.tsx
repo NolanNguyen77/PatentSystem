@@ -426,6 +426,10 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                     totalCount={selectedCompanyCount}
                     onBack={() => setActiveTab('detail')}
                     filterInfo={selectedFilterInfo}
+                    onEvaluationSaved={() => {
+                        console.log('Evaluation saved, refreshing titles...');
+                        fetchTitles();
+                    }}
                 />
             ) : (
                 <main className="container mx-auto px-4 py-8">

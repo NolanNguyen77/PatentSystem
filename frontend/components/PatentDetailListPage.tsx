@@ -30,6 +30,7 @@ interface PatentDetailListPageProps {
     periodFilter: string;
     dateColumn?: string;
   };
+  onEvaluationSaved?: () => void;
 }
 
 interface Patent {
@@ -68,6 +69,7 @@ export function PatentDetailListPage({
   companyName,
   totalCount,
   onBack,
+  onEvaluationSaved,
   filterInfo
 }: PatentDetailListPageProps) {
   const [patents, setPatents] = useState<Patent[]>([]);
@@ -331,9 +333,14 @@ export function PatentDetailListPage({
       if (result.error) {
         toast.error(`エラー: ${result.error}`);
       } else {
-        const { created, updated } = result.data || { created: 0, updated: 0 };
+        const payload = (result.data as any)?.data ?? result.data ?? {};
+        const created = payload.created ?? 0;
+        const updated = payload.updated ?? 0;
         toast.success(`評価を保存しました（新規: ${created}件、更新: ${updated}件）`);
         await fetchPatents();
+        if (onEvaluationSaved) {
+          onEvaluationSaved();
+        }
       }
     } catch (err) {
       console.error('Failed to save evaluations:', err);
@@ -459,17 +466,17 @@ export function PatentDetailListPage({
         <div className="space-y-4">
           {patents.map((patent) => (
             <div key={patent.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-              <div className="flex gap-4 p-4">
-                {/* Left Panel - Patent Info - Auto height */}
-                <div className="w-[350px] min-w-[350px] max-w-[350px] border border-gray-200 rounded-lg bg-white flex-shrink-0 flex flex-col">
-                  <div className="bg-gradient-to-r from-orange-500 to-yellow-500 px-4 py-2 text-white text-sm flex items-center gap-2 flex-shrink-0">
+              <div className="flex gap-4 p-4 items-start">
+                {/* Left Panel - Patent Info - Fixed height */}
+                <div className="patent-info-box">
+                  <div className="bg-gradient-to-r from-orange-500 to-yellow-500 px-4 py-2 text-white text-sm flex items-center gap-2 flex-shrink-0 rounded-t-lg">
                     <Checkbox
                       checked={selectedIds.has(patent.id)}
                       onCheckedChange={(checked: boolean) => handleSelectOne(patent.id, checked)}
                     />
                     特許情報
                   </div>
-                  <div className="text-sm border-t border-gray-200">
+                  <div className="patent-info-content">
                     {[
                       { label: '【文献番号】', value: patent.documentNum, bold: true },
                       { label: '【出願番号】', value: patent.applicationNum },
@@ -499,7 +506,7 @@ export function PatentDetailListPage({
                         【発明の名称】
                       </div>
                       <div className="p-2 flex-1">
-                        <div className="max-h-[50px] overflow-y-auto text-xs leading-tight patent-info-scroll">
+                        <div className="max-h-[50px] text-xs leading-tight custom-scrollbar" style={{ overflowY: 'auto' }}>
                           {patent.inventionTitle ? (
                             patent.inventionTitle.split('、').reduce((acc: string[][], word, index) => {
                               const lineIndex = Math.floor(index / 3);
@@ -519,7 +526,7 @@ export function PatentDetailListPage({
                         【FI】
                       </div>
                       <div className="p-2 flex-1">
-                        <div className="max-h-[50px] overflow-y-auto text-xs leading-tight patent-info-scroll">
+                        <div className="max-h-[120px] text-xs leading-tight custom-scrollbar" style={{ overflowY: 'auto' }}>
                           {patent.fiClassification ? (
                             patent.fiClassification.split(',').reduce((acc: string[][], fi, index) => {
                               const lineIndex = Math.floor(index / 4);
@@ -553,14 +560,20 @@ export function PatentDetailListPage({
                         )}
                       </div>
                     </div>
+
+                    {/* Filler to extend border to bottom */}
+                    <div className="flex flex-1">
+                      <div className="w-[120px] bg-gray-50 border-r border-gray-100 flex-shrink-0"></div>
+                      <div className="flex-1"></div>
+                    </div>
                   </div>
 
 
                 </div>
 
 
-                {/* Right Panel - Details - Same height as left panel */}
-                <div className="flex-1 space-y-4 flex flex-col h-[600px]">
+                {/* Right Panel - Details - Independent height */}
+                <div className="flex-1 space-y-4 flex flex-col">
                   {/* Two Column Section */}
                   <div className="grid grid-cols-2 gap-4">
                     {/* Left Column */}
@@ -569,7 +582,8 @@ export function PatentDetailListPage({
                         <div className="text-sm text-gray-600">【出願人/権利者】</div>
                         <div className="text-sm mb-3">{patent.applicantName || '-'}</div>
                         <div className="text-sm text-gray-600 mb-1">【要約】</div>
-                        <div className="text-sm bg-gray-50 p-3 rounded h-[200px] min-h-[200px] overflow-y-auto border border-gray-200 whitespace-pre-wrap leading-relaxed break-words patent-abstract-scroll">
+                        {/* Scrollable abstract section */}
+                        <div className="scrollable-patent-box">
                           {patent.abstract || '-'}
                         </div>
                       </div>
@@ -581,7 +595,7 @@ export function PatentDetailListPage({
                         <div className="text-sm text-gray-600">【発明の名称】</div>
                         <div className="text-sm mb-3">{patent.inventionTitle || '-'}</div>
                         <div className="text-sm text-gray-600 mb-1">【請求の範囲】</div>
-                        <div className="text-sm bg-gray-50 p-3 rounded h-[200px] min-h-[200px] overflow-y-auto border border-gray-200 whitespace-pre-wrap leading-relaxed break-words patent-claims-scroll">
+                        <div className="scrollable-patent-box">
                           {patent.claims || '-'}
                         </div>
                       </div>
@@ -589,7 +603,7 @@ export function PatentDetailListPage({
                   </div>
 
                   {/* Evaluation Section - flex-1 to fill remaining space */}
-                  <div className="border border-orange-200 rounded-lg p-4 space-y-3 bg-orange-50/40 flex-1 flex flex-col">
+                  <div className="evaluation-box">
                     <div className="text-sm font-medium">【評価】</div>
 
                     <div className="flex items-center gap-4">
@@ -613,16 +627,21 @@ export function PatentDetailListPage({
                     <div className="flex items-center gap-4">
                       <Select
                         value={patentStates[patent.id].bottomEvaluation}
-                        onValueChange={(value: string) => updatePatentState(patent.id, 'bottomEvaluation', value)}
+                        onValueChange={(value: string) => {
+                          updatePatentState(patent.id, 'bottomEvaluation', value);
+                          if (value === '未評価') {
+                            updatePatentState(patent.id, 'reasonInput', '');
+                          }
+                        }}
                       >
                         <SelectTrigger className="w-[240px]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="未評価">未評価</SelectItem>
-                          <SelectItem value="A">A：評価1</SelectItem>
-                          <SelectItem value="B">B：評価2</SelectItem>
-                          <SelectItem value="C">C：評価3</SelectItem>
+                          <SelectItem value="A">A:評価1</SelectItem>
+                          <SelectItem value="B">B:評価2</SelectItem>
+                          <SelectItem value="C">C:評価3</SelectItem>
                         </SelectContent>
                       </Select>
 
