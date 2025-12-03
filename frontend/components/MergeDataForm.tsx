@@ -8,7 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Checkbox } from './ui/checkbox';
 import { Input } from './ui/input';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { titleAPI } from '../services/api';
+import { titleAPI, mergeAPI } from '../services/api';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 
 interface MergeDataFormProps {
   onBack?: () => void;
@@ -17,12 +18,13 @@ interface MergeDataFormProps {
 export function MergeDataForm({ onBack }: MergeDataFormProps) {
   const [mergeTitle, setMergeTitle] = useState('');
   const [department, setDepartment] = useState('');
-  const [selectedTitles, setSelectedTitles] = useState<string[]>([]);
+  const [selectedTitles, setSelectedTitles] = useState<string[]>([]); // Array of title IDs (no/id)
   const [showExtractionCondition, setShowExtractionCondition] = useState(false);
   const [extractionType, setExtractionType] = useState('evaluation');
   const [selectedEvaluations, setSelectedEvaluations] = useState<string[]>([]);
   const [titleData, setTitleData] = useState<any[]>([]);
   const [evaluationData, setEvaluationData] = useState<any[]>([]);
+  const [priorityList, setPriorityList] = useState<any[]>([]); // List of titles for priority
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch titles and evaluations from API
@@ -31,17 +33,50 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
       try {
         console.log('🔄 Fetching titles...');
         const result = await titleAPI.getAll();
-        
+
         if (result.data) {
-          const titles = result.data.titles || (Array.isArray(result.data) ? result.data : []);
+          console.log('📦 MergeDataForm Raw Result:', result);
+          let titles: any[] = [];
+
+          // Try to find the titles array in various locations
+          // 1. result.data.data.titles (nested response from some controllers)
+          if (result.data.data && Array.isArray(result.data.data.titles)) {
+            console.log('Found titles in result.data.data.titles');
+            titles = result.data.data.titles;
+          }
+          // 2. result.data.titles (direct response from titleAPI.getAll)
+          else if (result.data.titles && Array.isArray(result.data.titles)) {
+            console.log('Found titles in result.data.titles');
+            titles = result.data.titles;
+          }
+          // 3. result.data.data (if data itself is the array)
+          else if (result.data.data && Array.isArray(result.data.data)) {
+            console.log('Found titles in result.data.data (array)');
+            titles = result.data.data;
+          }
+          // 4. result.data (if result.data is the array)
+          else if (Array.isArray(result.data)) {
+            console.log('Found titles in result.data (array)');
+            titles = result.data;
+          } else {
+            console.warn('Could not find titles array in response', result);
+          }
+
+          console.log('✅ Parsed titles:', titles);
+
+          if (titles.length === 0) {
+            console.warn('Titles array is empty!');
+          }
+
           setTitleData(titles.map((t: any, idx: number) => ({
-            no: t.no || `000${idx + 1}`,
-            title: t.titleName || t.name
+            no: t.no || t.titleNo || `000${idx + 1}`,
+            title: t.titleName || t.name || '名称なし',
+            id: t.id
           })));
-          
-          // Initialize empty evaluations array (will be populated from database when needed)
-          setEvaluationData([]);
         }
+
+        // Initialize empty evaluations array (will be populated from database when needed)
+        setEvaluationData([]);
       } catch (err) {
         console.error('❌ Error fetching data:', err);
       } finally {
@@ -53,7 +88,7 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedTitles(titleData.map(t => t.no));
+      setSelectedTitles(titleData.map(t => t.id));
     } else {
       setSelectedTitles([]);
     }
@@ -63,16 +98,58 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
     if (checked) {
       setSelectedTitles([...selectedTitles, titleNo]);
     } else {
-      setSelectedTitles(selectedTitles.filter(no => no !== titleNo));
+      setSelectedTitles(selectedTitles.filter(id => id !== titleNo));
     }
   };
 
-  const handleSelectTitles = () => {
+  const handleSelectTitles = async () => {
     if (selectedTitles.length === 0) {
       alert('タイトルを選択してください。');
       return;
     }
-    setShowExtractionCondition(true);
+
+    setIsLoading(true);
+    try {
+      console.log('🚀 Calling getMergeCandidates with:', selectedTitles);
+      const result = await mergeAPI.getMergeCandidates(selectedTitles);
+      console.log('📦 getMergeCandidates Result:', result);
+
+      if (result.data) {
+        // Check for nested data structure
+        const data = result.data.data || result.data;
+        console.log('📂 Processed Data:', data);
+
+        if (!data.titles || !data.evaluations) {
+          console.error('❌ Missing titles or evaluations in response data');
+          throw new Error('Invalid response format');
+        }
+
+        setPriorityList(data.titles);
+        setEvaluationData(data.evaluations);
+        // Default select all evaluations
+        if (Array.isArray(data.evaluations)) {
+          setSelectedEvaluations(data.evaluations.map((e: any) => e.id));
+        }
+        setShowExtractionCondition(true);
+      } else if (result.error) {
+        alert(result.error);
+      }
+    } catch (error) {
+      console.error('Error fetching merge candidates:', error);
+      alert('マージ候補の取得に失敗しました。');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const movePriority = (index: number, direction: 'up' | 'down') => {
+    const newList = [...priorityList];
+    if (direction === 'up' && index > 0) {
+      [newList[index], newList[index - 1]] = [newList[index - 1], newList[index]];
+    } else if (direction === 'down' && index < newList.length - 1) {
+      [newList[index], newList[index + 1]] = [newList[index + 1], newList[index]];
+    }
+    setPriorityList(newList);
   };
 
   const handleSelectAllEvaluations = (checked: boolean) => {
@@ -91,14 +168,33 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
     }
   };
 
-  const handleMerge = () => {
+  const handleMerge = async () => {
     if (!mergeTitle || !department || selectedTitles.length === 0) {
       alert('データタイトル名、部門、マージタイトルを選択してください。');
       return;
     }
-    // Handle merge logic here
-    console.log('Merging:', { mergeTitle, department, selectedTitles, extractionType, selectedEvaluations });
-    alert('マージを実行しました。');
+
+    setIsLoading(true);
+    try {
+      const result = await mergeAPI.mergeTitles({
+        newTitleName: mergeTitle,
+        department,
+        priorityList: priorityList.map(t => t.id),
+        selectedEvaluations
+      });
+
+      if (result.data) {
+        alert('マージを実行しました。');
+        if (onBack) onBack();
+      } else if (result.error) {
+        alert(result.error);
+      }
+    } catch (error) {
+      console.error('Merge failed:', error);
+      alert('マージに失敗しました。');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -106,8 +202,8 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
       {/* Top Button */}
       <div className="flex justify-between items-center">
         {onBack && (
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={onBack}
             className="border-2 border-orange-500 text-orange-600 hover:bg-orange-50 px-6"
           >
@@ -182,11 +278,11 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
                 <TableRow className="bg-gray-100 hover:bg-gray-100">
                   <TableHead className="w-[100px] border-r text-xs text-center">
                     <div className="flex items-center justify-center gap-1">
-                          <Checkbox 
-                            checked={selectedEvaluations.length === evaluationData.length && evaluationData.length > 0}
-                            onCheckedChange={handleSelectAllEvaluations}
-                          />
-                          <span className="ml-1">全ON／OFF</span>
+                      <Checkbox
+                        checked={selectedEvaluations.length === evaluationData.length && evaluationData.length > 0}
+                        onCheckedChange={handleSelectAllEvaluations}
+                      />
+                      <span className="ml-1">全ON／OFF</span>
                     </div>
                   </TableHead>
                   <TableHead className="w-[120px] border-r text-xs text-center">No.</TableHead>
@@ -197,9 +293,9 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
                 {titleData.map((title) => (
                   <TableRow key={title.no} className="hover:bg-gray-50">
                     <TableCell className="border-r text-center">
-                      <Checkbox 
-                        checked={selectedTitles.includes(title.no)}
-                        onCheckedChange={(checked: boolean | 'indeterminate') => handleSelectTitle(title.no, typeof checked === 'boolean' ? checked : false)}
+                      <Checkbox
+                        checked={selectedTitles.includes(title.id)}
+                        onCheckedChange={(checked: boolean | 'indeterminate') => handleSelectTitle(title.id, typeof checked === 'boolean' ? checked : false)}
                       />
                     </TableCell>
                     <TableCell className="border-r text-xs text-center">{title.no}</TableCell>
@@ -222,29 +318,14 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
         </div>
       </Card>
 
-      {/* Section 3: 抽出条件 */}
+      {/* Section 4: 抽出条件 */}
       {showExtractionCondition && (
         <Card className="border-2 border-orange-200 bg-blue-50/30">
           <div className="p-4">
             <div className="mb-4">
-              <span className="bg-orange-500 text-white px-3 py-1 rounded text-sm">③マージデータの抽出条件</span>
+              <span className="bg-orange-500 text-white px-3 py-1 rounded text-sm">④マージデータの抽出条件</span>
             </div>
-
             <div className="space-y-4">
-              {/* Radio Group */}
-              <RadioGroup value={extractionType} onValueChange={setExtractionType} className="mb-3">
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem value="evaluation" id="evaluation" />
-                    <Label htmlFor="evaluation" className="text-sm cursor-pointer">評価</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem value="monitoring" id="monitoring" />
-                    <Label htmlFor="monitoring" className="text-sm cursor-pointer">監視状態（監視中）</Label>
-                  </div>
-                </div>
-              </RadioGroup>
-
               {/* Table */}
               <Card className="border-2 border-gray-300 bg-white overflow-hidden">
                 <Table>
@@ -252,7 +333,7 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
                     <TableRow className="bg-gray-50 hover:bg-gray-50">
                       <TableHead className="w-[120px] border-r text-xs text-center">
                         <div className="flex items-center justify-center gap-1">
-                          <Checkbox 
+                          <Checkbox
                             checked={selectedEvaluations.length === evaluationData.length && evaluationData.length > 0}
                             onCheckedChange={handleSelectAllEvaluations}
                           />
@@ -267,13 +348,13 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
                     {evaluationData.map((evaluation) => (
                       <TableRow key={evaluation.id} className="hover:bg-gray-50">
                         <TableCell className="border-r text-center">
-                          <Checkbox 
+                          <Checkbox
                             checked={selectedEvaluations.includes(evaluation.id)}
                             onCheckedChange={(checked: boolean | 'indeterminate') => handleSelectEvaluation(evaluation.id, typeof checked === 'boolean' ? checked : false)}
                           />
                         </TableCell>
                         <TableCell className="border-r text-xs text-center">{evaluation.code}</TableCell>
-                        <TableCell className="text-xs">{evaluation.name}</TableCell>
+                        <TableCell className="text-xs">{evaluation.itemName}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

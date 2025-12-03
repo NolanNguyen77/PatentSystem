@@ -7,6 +7,8 @@ import {
   deleteTitleController,
   copyTitleController,
   searchTitlesController,
+  getMergeCandidatesController,
+  mergeTitlesController,
 } from '../controllers/title.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validation.middleware';
@@ -23,5 +25,7 @@ router.post('/', validate(createTitleSchema), createTitleController);
 router.put('/:id', validate(updateTitleSchema), updateTitleController);
 router.delete('/:id', deleteTitleController);
 router.post('/:id/copy', copyTitleController);
+router.post('/merge/candidates', getMergeCandidatesController);
+router.post('/merge', mergeTitlesController);
 
 export default router;

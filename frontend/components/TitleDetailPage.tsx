@@ -312,6 +312,93 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
     }
   };
 
+  const handleExportCSV = () => {
+    if (allPatents.length === 0) {
+      alert('出力するデータがありません。');
+      return;
+    }
+
+    // Define CSV headers based on systemFields from ImportDataPage + Evaluation fields
+    const headers = [
+      'No',
+      '文献番号',
+      '出願番号',
+      '出願日',
+      '公知日',
+      '発明の名称',
+      '出願人/権利者',
+      'FI',
+      '公開番号',
+      '公告番号',
+      '登録番号',
+      '審判番号',
+      '要約',
+      '請求の範囲',
+      'その他',
+      'ステージ',
+      'イベント詳細',
+      '文献URL',
+      'ステータス', // Evaluation Status
+      '評価結果',   // Evaluation Result (same as status for now, or specific field if available)
+      '評価コメント' // Evaluation Comment
+    ];
+
+    // Map data to CSV rows
+    const rows = allPatents.map((patent, index) => {
+      // Helper to escape CSV fields (handle quotes, commas, newlines)
+      const escape = (value: any) => {
+        if (value === null || value === undefined) return '';
+        const stringValue = String(value);
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
+      };
+
+      // Get evaluation info
+      const evaluation = patent.evaluations && patent.evaluations.length > 0 ? patent.evaluations[0] : null;
+      const status = patent.evaluationStatus || (evaluation ? evaluation.status : '未評価');
+      const comment = evaluation ? evaluation.comment : '';
+
+      return [
+        index + 1,
+        escape(patent.documentNum),            // 文献番号 (Corrected from documentNumber)
+        escape(patent.applicationNum),         // 出願番号 (Corrected from applicationNumber)
+        escape(patent.applicationDate),        // 出願日
+        escape(patent.publicationDate),        // 公知日
+        escape(patent.inventionTitle),         // 発明の名称 (Corrected from title)
+        escape(patent.applicantName),          // 出願人/権利者
+        escape(patent.fiClassification),       // FI (Corrected from fi)
+        escape(patent.publicationNum),         // 公開番号 (Corrected from publicationNumber)
+        escape(patent.announcementNum),        // 公告番号 (Corrected from gazetteNumber)
+        escape(patent.registrationNum),        // 登録番号 (Corrected from registrationNumber)
+        escape(patent.appealNum),              // 審判番号 (Corrected from appealNumber)
+        escape(patent.abstract),               // 要約
+        escape(patent.claims),                 // 請求の範囲 (Corrected from claimText)
+        escape(patent.otherInfo),              // その他
+        escape(patent.statusStage),            // ステージ (Corrected from stage)
+        escape(patent.eventDetail),            // イベント詳細 (Corrected from eventDetails)
+        escape(patent.documentUrl),            // 文献URL
+        escape(status),                        // ステータス
+        escape(status),                        // 評価結果
+        escape(comment)                        // 評価コメント
+      ].join(',');
+    });
+
+    // Combine headers and rows
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n'); // Add BOM for Excel support
+
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${titleName}_特許一覧_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       {/* Header with Actions */}
@@ -332,6 +419,7 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
               variant="outline"
               size="sm"
               className="text-sm h-8 transition-all duration-200 text-green-600 border-green-200 hover:bg-green-100 hover:border-green-300"
+              onClick={handleExportCSV}
             >
               <Download className="w-4 h-4 mr-1" />
               CSV出力
@@ -575,7 +663,18 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                   <TableCell className="bg-blue-50 text-center border-r">
                     <span className="text-sm font-semibold">{allPatents.filter(p => p.evaluationStatus === '未評価').length}</span>
                   </TableCell>
-                  <TableCell className="bg-blue-50 text-center border-r">
+                  <TableCell className={`text-center border-r ${(() => {
+                    const count = patentData.reduce((sum, item) => sum + (item.counts?.['日付未設定']?.count || 0), 0);
+                    const evaluated = patentData.reduce((sum, item) => sum + (item.counts?.['日付未設定']?.evaluated || 0), 0);
+                    if (count > 0 && count === evaluated) return 'bg-orange-300 group-hover:bg-orange-300 font-bold';
+                    return 'bg-blue-50';
+                  })()}`}
+                    style={(() => {
+                      const count = patentData.reduce((sum, item) => sum + (item.counts?.['日付未設定']?.count || 0), 0);
+                      const evaluated = patentData.reduce((sum, item) => sum + (item.counts?.['日付未設定']?.evaluated || 0), 0);
+                      if (count > 0 && count === evaluated) return { backgroundColor: '#fed7aa' }; // orange-200
+                      return undefined;
+                    })()}>
                     {(() => {
                       const count = patentData.reduce((sum, item) => sum + (item.counts?.['日付未設定']?.count || 0), 0);
                       return count > 0 ? (
@@ -595,7 +694,18 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                       );
                     })()}
                   </TableCell>
-                  <TableCell className="bg-blue-50 text-center border-r">
+                  <TableCell className={`text-center border-r ${(() => {
+                    const count = patentData.reduce((sum, item) => sum + (item.counts?.['以前']?.count || 0), 0);
+                    const evaluated = patentData.reduce((sum, item) => sum + (item.counts?.['以前']?.evaluated || 0), 0);
+                    if (count > 0 && count === evaluated) return 'bg-orange-300 group-hover:bg-orange-300 font-bold';
+                    return 'bg-blue-50';
+                  })()}`}
+                    style={(() => {
+                      const count = patentData.reduce((sum, item) => sum + (item.counts?.['以前']?.count || 0), 0);
+                      const evaluated = patentData.reduce((sum, item) => sum + (item.counts?.['以前']?.evaluated || 0), 0);
+                      if (count > 0 && count === evaluated) return { backgroundColor: '#fed7aa' }; // orange-200
+                      return undefined;
+                    })()}>
                     {(() => {
                       const count = patentData.reduce((sum, item) => sum + (item.counts?.['以前']?.count || 0), 0);
                       return count > 0 ? (
@@ -617,8 +727,22 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                   </TableCell>
                   {dateColumns.map((col) => {
                     const total = patentData.reduce((sum, item) => sum + (item.counts?.[col]?.count || 0), 0);
+                    const totalEvaluated = patentData.reduce((sum, item) => sum + (item.counts?.[col]?.evaluated || 0), 0);
+                    const isFullyEvaluated = total > 0 && total === totalEvaluated;
+                    const isPartiallyEvaluated = total > 0 && totalEvaluated > 0;
+
+                    let cellClass = "text-center border-r";
+                    if (isFullyEvaluated) {
+                      cellClass += " bg-orange-300 group-hover:bg-orange-300 font-bold";
+                    } else {
+                      cellClass += " bg-blue-50";
+                    }
+
+                    const style = isFullyEvaluated ? { backgroundColor: '#fed7aa' } : // orange-200
+                      undefined;
+
                     return (
-                      <TableCell key={col} className="bg-blue-50 text-center border-r">
+                      <TableCell key={col} className={cellClass} style={style}>
                         {total > 0 ? (
                           <button
                             className="text-blue-600 hover:underline text-xs font-semibold"
@@ -675,7 +799,18 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                     <TableCell className="group-hover:bg-orange-50 text-center border-r transition-colors">
                       <span className="text-sm">{item.unEvaluated || 0}</span>
                     </TableCell>
-                    <TableCell className="group-hover:bg-orange-50 text-center border-r transition-colors">
+                    <TableCell className={`group-hover:bg-orange-50 text-center border-r transition-colors ${(() => {
+                      const count = item.counts?.['日付未設定']?.count || 0;
+                      const evaluated = item.counts?.['日付未設定']?.evaluated || 0;
+                      if (count > 0 && count === evaluated) return 'bg-orange-300 group-hover:bg-orange-300 font-bold';
+                      return '';
+                    })()}`}
+                      style={(() => {
+                        const count = item.counts?.['日付未設定']?.count || 0;
+                        const evaluated = item.counts?.['日付未設定']?.evaluated || 0;
+                        if (count > 0 && count === evaluated) return { backgroundColor: '#fed7aa' }; // orange-200
+                        return undefined;
+                      })()}>
                       {item.counts?.['日付未設定']?.count > 0 ? (
                         <button
                           className="text-blue-600 hover:underline text-xs"
@@ -692,7 +827,18 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                         <span className="text-xs text-gray-400">-</span>
                       )}
                     </TableCell>
-                    <TableCell className="group-hover:bg-orange-50 text-center border-r transition-colors">
+                    <TableCell className={`group-hover:bg-orange-50 text-center border-r transition-colors ${(() => {
+                      const count = item.counts?.['以前']?.count || 0;
+                      const evaluated = item.counts?.['以前']?.evaluated || 0;
+                      if (count > 0 && count === evaluated) return 'bg-orange-300 group-hover:bg-orange-300 font-bold';
+                      return '';
+                    })()}`}
+                      style={(() => {
+                        const count = item.counts?.['以前']?.count || 0;
+                        const evaluated = item.counts?.['以前']?.evaluated || 0;
+                        if (count > 0 && count === evaluated) return { backgroundColor: '#fed7aa' }; // orange-200
+                        return undefined;
+                      })()}>
                       {item.counts?.['以前']?.count > 0 ? (
                         <button
                           className="text-blue-600 hover:underline text-xs"
@@ -718,15 +864,17 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
 
                       let cellClass = "group-hover:bg-orange-50 text-center border-r transition-colors";
                       if (isFullyEvaluated) {
-                        cellClass += " bg-orange-200 font-bold";
-                      } else if (isPartiallyEvaluated) {
-                        cellClass += " bg-yellow-100";
+                        cellClass += " bg-orange-300 group-hover:bg-orange-300 font-bold";
                       }
+
+                      const style = isFullyEvaluated ? { backgroundColor: '#fed7aa' } : // orange-200
+                        undefined;
 
                       return (
                         <TableCell
                           key={col}
                           className={cellClass}
+                          style={style}
                         >
                           {count > 0 ? (
                             <button

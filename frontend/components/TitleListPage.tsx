@@ -636,35 +636,45 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                                         </TableCell>
                                                         <TableCell>{item.responsible}</TableCell>
                                                         <TableCell className="text-center">
-                                                            <Badge className="bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 border-0 group-hover:bg-orange-200 group-hover:text-orange-800">
-                                                                {item.dataCount}
-                                                            </Badge>
+                                                            {(item.dataCount > 0 || !item.title.includes('コピー')) && (
+                                                                <Badge className="bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 border-0 group-hover:bg-orange-200 group-hover:text-orange-800">
+                                                                    {item.dataCount}
+                                                                </Badge>
+                                                            )}
                                                         </TableCell>
                                                         <TableCell className="text-center">
-                                                            <Badge className="bg-green-100 text-green-700 border-0 group-hover:bg-orange-200 group-hover:text-orange-800">
-                                                                {item.evaluated}
-                                                            </Badge>
+                                                            {(item.dataCount > 0 || !item.title.includes('コピー')) && (
+                                                                <Badge className="bg-green-100 text-green-700 border-0 group-hover:bg-orange-200 group-hover:text-orange-800">
+                                                                    {item.evaluated}
+                                                                </Badge>
+                                                            )}
                                                         </TableCell>
                                                         <TableCell className="text-center">
-                                                            <Badge className="bg-orange-100 text-orange-700 border-0 group-hover:bg-orange-200 group-hover:text-orange-800">
-                                                                {item.notEvaluated}
-                                                            </Badge>
+                                                            {(item.dataCount > 0 || !item.title.includes('コピー')) && (
+                                                                <Badge className="bg-orange-100 text-orange-700 border-0 group-hover:bg-orange-200 group-hover:text-orange-800">
+                                                                    {item.notEvaluated}
+                                                                </Badge>
+                                                            )}
                                                         </TableCell>
                                                         <TableCell className="text-center">
-                                                            <Badge className="bg-gray-100 text-gray-700 border-0 group-hover:bg-orange-200 group-hover:text-orange-800">
-                                                                {item.trash}
-                                                            </Badge>
+                                                            {(item.dataCount > 0 || !item.title.includes('コピー')) && (
+                                                                <Badge className="bg-gray-100 text-gray-700 border-0 group-hover:bg-orange-200 group-hover:text-orange-800">
+                                                                    {item.trash}
+                                                                </Badge>
+                                                            )}
                                                         </TableCell>
                                                         <TableCell className="text-center">
-                                                            <div className="flex items-center justify-center gap-2">
-                                                                <div className="w-24 bg-gray-200 rounded-full h-2 group-hover:bg-orange-200">
-                                                                    <div
-                                                                        className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full group-hover:from-orange-600 group-hover:to-yellow-600"
-                                                                        style={{ width: `${item.progressRate}%` }}
-                                                                    ></div>
+                                                            {(item.dataCount > 0 || !item.title.includes('コピー')) && (
+                                                                <div className="flex items-center justify-center gap-2">
+                                                                    <div className="w-24 bg-gray-200 rounded-full h-2 group-hover:bg-orange-200">
+                                                                        <div
+                                                                            className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full group-hover:from-orange-600 group-hover:to-yellow-600"
+                                                                            style={{ width: `${item.progressRate}%` }}
+                                                                        ></div>
+                                                                    </div>
+                                                                    <span className="text-sm">{item.progressRate}%</span>
                                                                 </div>
-                                                                <span className="text-sm">{item.progressRate}%</span>
-                                                            </div>
+                                                            )}
                                                         </TableCell>
                                                         <TableCell className="text-center">
                                                             <Button

@@ -544,7 +544,8 @@ export const copyTitle = async (
   id: string,
   newTitleName: string,
   userId: string,
-  userPermission: string
+  userPermission: string,
+  copyPatents: boolean = true // Default to true for backward compatibility
 ) => {
   const originalTitle = await prisma.title.findUnique({
     where: { id },
@@ -606,8 +607,8 @@ export const copyTitle = async (
     },
   });
 
-  // Copy patents
-  if (originalTitle.patents.length > 0) {
+  // Copy patents if requested
+  if (copyPatents && originalTitle.patents.length > 0) {
     await prisma.patent.createMany({
       data: originalTitle.patents.map((patent: any) => ({
         titleId: newTitle.id,
@@ -658,4 +659,163 @@ export const searchTitles = async (query: string, userId: string, userPermission
   }
 
   return { titles: accessibleTitles };
+};
+
+export const getMergeCandidates = async (titleIds: string[], userId: string, userPermission: string) => {
+  // 1. Fetch titles with their patents
+  const titles = await prisma.title.findMany({
+    where: {
+      id: { in: titleIds },
+    },
+    include: {
+      patents: true,
+    },
+  });
+
+  // 2. Filter accessible titles and check for valid data
+  const validTitles = [];
+  const evaluations = [];
+
+  for (const title of titles) {
+    const canView = await canViewTitle(userId, title.id, userPermission as any);
+    if (!canView) continue;
+
+    // Filter out titles with no evaluated patents? Or just fetch evaluated patents.
+    // The requirement says "loại bỏ 未評価" (remove unevaluated). 
+    // We will filter patents that are NOT '未評価'.
+    const evaluatedPatents = title.patents.filter((p: any) => p.evaluationStatus !== '未評価');
+
+    if (evaluatedPatents.length > 0) {
+      validTitles.push({
+        id: title.id,
+        titleName: title.titleName,
+        titleNo: title.titleNo,
+      });
+
+      for (const p of evaluatedPatents) {
+        evaluations.push({
+          id: p.id,
+          code: title.titleNo, // User requested: 評価記号 = Data No of the title
+          titleId: title.id,
+          titleName: title.titleName,
+          itemName: p.evaluationStatus, // User requested: 項目名 = Evaluation (A, B, C...)
+          evaluationStatus: p.evaluationStatus,
+          titleNo: title.titleNo
+        });
+      }
+    }
+  }
+
+  return {
+    titles: validTitles,
+    evaluations: evaluations,
+  };
+};
+
+export const mergeTitles = async (
+  data: {
+    newTitleName: string;
+    department: string; // Not used in Title model directly but maybe for user assignment? 
+    // For now we just create the title. 
+    // If department implies assigning to a user in that department, we might need more logic.
+    // We'll assume it's just metadata or we assign to current user.
+    priorityList: string[]; // List of titleIds in priority order
+    selectedEvaluations: string[]; // List of patent IDs to include
+  },
+  userId: string,
+  userPermission: string
+) => {
+  // 1. Create new Title
+  // Generate title number
+  const lastTitle = await prisma.title.findFirst({
+    orderBy: { createdAt: 'desc' },
+    select: { titleNo: true },
+  });
+
+  let titleNo = '000001';
+  if (lastTitle) {
+    const lastNum = parseInt(lastTitle.titleNo);
+    titleNo = String(lastNum + 1).padStart(6, '0');
+  }
+
+  // Create the title transactionally with patents
+  const result = await prisma.$transaction(async (tx) => {
+    const newTitle = await tx.title.create({
+      data: {
+        titleNo,
+        titleName: data.newTitleName,
+        dataType: '特許', // Default
+        saveDate: new Date().toISOString().slice(0, 7).replace('-', '/'), // Current YYYY/MM
+        createdBy: userId,
+        // We could set mainOwner based on department if we had logic for it.
+        // For now, assign to creator.
+        titleUsers: {
+          create: {
+            userId: userId,
+            isMainResponsible: true,
+            isAdmin: true, // Creator is admin
+          },
+        },
+      },
+    });
+
+    // 2. Process patents based on priority
+    const addedDocumentNums = new Set<string>();
+
+    // Iterate through priority list
+    for (const titleId of data.priorityList) {
+      // Find patents for this title that are in selectedEvaluations
+      // We need to fetch them from DB to get full data
+      const patentsToCopy = await tx.patent.findMany({
+        where: {
+          titleId: titleId,
+          id: { in: data.selectedEvaluations },
+        },
+      });
+
+      for (const patent of patentsToCopy) {
+        const docNum = patent.documentNum || patent.applicationNum; // Unique identifier
+
+        // If we haven't added this patent yet (from a higher priority title)
+        if (docNum && !addedDocumentNums.has(docNum)) {
+          await tx.patent.create({
+            data: {
+              titleId: newTitle.id,
+              documentNum: patent.documentNum,
+              applicationNum: patent.applicationNum,
+              applicationDate: patent.applicationDate,
+              publicationDate: patent.publicationDate,
+              publicationNum: patent.publicationNum,
+              registrationNum: patent.registrationNum,
+              announcementNum: patent.announcementNum,
+              appealNum: patent.appealNum,
+              inventionTitle: patent.inventionTitle,
+              applicantName: patent.applicantName,
+              fiClassification: patent.fiClassification,
+              statusStage: patent.statusStage,
+              eventDetail: patent.eventDetail,
+              otherInfo: patent.otherInfo,
+              abstract: patent.abstract,
+              claims: patent.claims,
+              documentUrl: patent.documentUrl,
+              // Copy evaluation data
+              evaluationStatus: patent.evaluationStatus,
+              // We might want to copy other evaluation fields if they exist in Patent model
+              // But Patent model mainly has evaluationStatus. 
+              // Actual detailed evaluation might be in 'Evaluation' table?
+              // Let's check schema if needed. For now assuming Patent model holds the main status.
+            },
+          });
+          addedDocumentNums.add(docNum);
+        }
+      }
+    }
+
+    return newTitle;
+  });
+
+  return {
+    id: result.id,
+    message: 'Titles merged successfully',
+  };
 };

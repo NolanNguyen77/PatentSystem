@@ -7,6 +7,8 @@ import {
   deleteTitle,
   copyTitle,
   searchTitles,
+  getMergeCandidates,
+  mergeTitles,
 } from '../services/title.service';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { logActivity } from '../middleware/logger.middleware';
@@ -154,8 +156,8 @@ export const copyTitleController = async (req: AuthRequest, res: Response): Prom
       return;
     }
 
-    const { newTitleName } = req.body;
-    const result = await copyTitle(req.params.id, newTitleName, req.user.id, req.user.permission);
+    const { newTitleName, copyPatents } = req.body;
+    const result = await copyTitle(req.params.id, newTitleName, req.user.id, req.user.permission, copyPatents);
 
     await logActivity(
       req.user.id,
@@ -197,3 +199,64 @@ export const searchTitlesController = async (req: AuthRequest, res: Response): P
   }
 };
 
+
+export const getMergeCandidatesController = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const { titleIds } = req.body;
+    if (!titleIds || !Array.isArray(titleIds) || titleIds.length === 0) {
+      res.status(400).json({ error: 'Title IDs are required' });
+      return;
+    }
+
+    const result = await getMergeCandidates(titleIds, req.user.id, req.user.permission);
+    res.json({ data: result });
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({
+      error: error.message || 'Failed to get merge candidates',
+    });
+  }
+};
+
+export const mergeTitlesController = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const { newTitleName, department, priorityList, selectedEvaluations } = req.body;
+
+    // Basic validation
+    if (!newTitleName || !priorityList || !selectedEvaluations) {
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
+    }
+
+    const result = await mergeTitles(
+      { newTitleName, department, priorityList, selectedEvaluations },
+      req.user.id,
+      req.user.permission
+    );
+
+    await logActivity(
+      req.user.id,
+      'create',
+      'title',
+      result.id,
+      `Merged titles to create: ${newTitleName}`,
+      req.ip,
+      result.id
+    );
+
+    res.status(201).json({ data: result });
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({
+      error: error.message || 'Failed to merge titles',
+    });
+  }
+};

@@ -173,10 +173,10 @@ const realTitleAPI = {
     });
   },
 
-  copy: async (id: string, newTitleName: string) => {
+  copy: async (id: string, newTitleName: string, copyPatents: boolean = true) => {
     return apiCall<{ id: string; message: string }>(`/titles/${id}/copy`, {
       method: 'POST',
-      body: JSON.stringify({ newTitleName }),
+      body: JSON.stringify({ newTitleName, copyPatents }),
     });
   },
 
@@ -186,18 +186,24 @@ const realTitleAPI = {
 };
 
 const realMergeAPI = {
+  getMergeCandidates: async (titleIds: string[]) => {
+    return apiCall<{
+      titles: Array<{ id: string; titleName: string; titleNo: string }>;
+      evaluations: Array<{ id: string; code: string; titleId: string; titleName: string; itemName: string; evaluationStatus: string }>;
+    }>('/titles/merge/candidates', {
+      method: 'POST',
+      body: JSON.stringify({ titleIds }),
+    });
+  },
+
   mergeTitles: async (mergeData: {
     newTitleName: string;
     department: string;
-    sourceTitleIds: string[];
-    extractionCondition: {
-      type: 'evaluation' | 'monitoring';
-      selectedEvaluations: string[];
-    };
+    priorityList: string[];
+    selectedEvaluations: string[];
   }) => {
     return apiCall<{
-      newTitleId: string;
-      mergedCount: number;
+      id: string;
       message: string
     }>('/titles/merge', {
       method: 'POST',
