@@ -1,6 +1,8 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { generateClassifications } from '../utils/classification';
+import { SearchExpressionParser } from '../utils/searchParser';
+import { Prisma } from '@prisma/client';
 
 export interface CreatePatentData {
   titleId: string;
@@ -632,4 +634,116 @@ export const assignPatents = async (
       return { count: 0 };
     }
   });
+};
+
+export const searchPatents = async (
+  criteria: {
+    mode: 'number' | 'condition';
+    searchOption?: 'exact' | 'partial';
+    numbers?: string[];
+    numberType?: string;
+    expression?: string;
+    conditions?: Record<string, { field: string; value: string }>;
+    titleIds?: string[];
+  },
+  userId: string
+) => {
+  let where: Prisma.PatentWhereInput = {};
+
+  console.log('🔍 searchPatents called with criteria:', JSON.stringify(criteria, null, 2));
+
+  // 1. Scope by Title IDs
+  if (criteria.titleIds && criteria.titleIds.length > 0) {
+    where.titleId = { in: criteria.titleIds };
+  }
+
+  // 2. Mode Logic
+  if (criteria.mode === 'number') {
+    if (criteria.numbers && criteria.numbers.length > 0) {
+      const fieldMap: Record<string, string> = {
+        'publication': 'publicationNum', // 公開番号
+        'application': 'applicationNum', // 出願番号
+        'registration': 'registrationNum', // 登録番号
+        'gazette': 'announcementNum', // 公報番号 (Assuming announcement)
+        'idea': 'documentNum', // アイデア番号 (Assuming documentNum)
+      };
+      const dbField = fieldMap[criteria.numberType || 'publication'] || 'publicationNum';
+
+      if (criteria.searchOption === 'partial') {
+        // For partial match with multiple numbers, we use OR
+        const orConditions = criteria.numbers.map(num => ({
+          [dbField]: { contains: num }
+        }));
+
+        if (where.titleId) {
+          where = {
+            AND: [
+              { titleId: where.titleId },
+              { OR: orConditions }
+            ]
+          };
+        } else {
+          where.OR = orConditions;
+        }
+      } else {
+        // Exact match
+        const exactMatch = { [dbField]: { in: criteria.numbers } };
+        if (where.titleId) {
+          where = {
+            AND: [
+              { titleId: where.titleId },
+              exactMatch
+            ]
+          };
+        } else {
+          Object.assign(where, exactMatch);
+        }
+      }
+    }
+  } else if (criteria.mode === 'condition') {
+    if (criteria.expression && criteria.conditions) {
+      try {
+        const parser = new SearchExpressionParser(criteria.expression, criteria.conditions);
+        const expressionWhere = parser.parse();
+
+        // Combine with title scope
+        if (where.titleId) {
+          where = {
+            AND: [
+              { titleId: where.titleId },
+              expressionWhere
+            ]
+          };
+        } else {
+          where = expressionWhere;
+        }
+      } catch (error: any) {
+        throw new AppError(`Invalid search expression: ${error.message}`, 400);
+      }
+    }
+  }
+
+  // Execute Query
+  console.log('🔍 Final Prisma Where Input:', JSON.stringify(where, null, 2));
+  const patents = await prisma.patent.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      title: {
+        select: {
+          titleName: true,
+          titleNo: true
+        }
+      },
+      evaluations: {
+        where: { userId: userId, isDeleted: false },
+        select: { status: true }
+      }
+    }
+  });
+
+  return {
+    count: patents.length,
+    patents: patents
+  };
 };

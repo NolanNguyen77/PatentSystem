@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { parseExcel, parseCSV, mapColumns, ColumnMapping, exportToExcel, exportToCSV } from '../utils/excel';
 import { generateClassifications } from '../utils/classification';
 import { AppError } from '../middleware/error.middleware';
+import { searchPatents } from './patent.service';
 
 export interface ImportResult {
   imported: number;
@@ -255,3 +256,43 @@ export const getExportFields = async () => {
   };
 };
 
+export const exportSearchResults = async (
+  criteria: any,
+  userId: string,
+  format: 'csv' | 'excel'
+): Promise<Buffer | string> => {
+  const result = await searchPatents(criteria, userId);
+  const patents = result.patents;
+
+  // Define fields to export
+  const fields = [
+    '文献番号', '出願番号', '出願日', '公知日', '発明の名称',
+    '出願人', '公開番号', '公告番号', '登録番号', '審判番号',
+    'その他', 'ステージ', 'イベント', '文献URL'
+  ];
+
+  const data = patents.map((patent: any) => {
+    return {
+      '文献番号': patent.documentNum || '',
+      '出願番号': patent.applicationNum || '',
+      '出願日': patent.applicationDate ? new Date(patent.applicationDate).toLocaleDateString() : '',
+      '公知日': patent.publicationDate ? new Date(patent.publicationDate).toLocaleDateString() : '',
+      '発明の名称': patent.inventionTitle || '',
+      '出願人': patent.applicantName || '',
+      '公開番号': patent.publicationNum || '',
+      '公告番号': patent.announcementNum || '',
+      '登録番号': patent.registrationNum || '',
+      '審判番号': patent.appealNum || '',
+      'その他': patent.otherInfo || '',
+      'ステージ': patent.statusStage || '',
+      'イベント': patent.eventDetail || '',
+      '文献URL': patent.documentUrl || ''
+    };
+  });
+
+  if (format === 'excel') {
+    return await exportToExcel(data, fields, 'search_results');
+  } else {
+    return exportToCSV(data, fields);
+  }
+};

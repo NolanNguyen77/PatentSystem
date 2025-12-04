@@ -11,13 +11,14 @@ import { Textarea } from './ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { ScrollArea } from './ui/scroll-area';
 import { Input } from './ui/input';
-import { titleAPI, patentAPI } from '../services/api';
+import { titleAPI, patentAPI, importExportAPI } from '../services/api';
 
 interface TitleSearchFormProps {
   onBack?: () => void;
 }
 
 interface SearchResult {
+  id: string;
   no: string;
   title: string;
   dataCount: number;
@@ -46,6 +47,7 @@ interface HistoryItem {
   id: string;
   name: string;
   value: string;
+  field: string;
 }
 
 interface PatentDetail {
@@ -71,13 +73,16 @@ interface PatentDetail {
 export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
   const [searchMethod, setSearchMethod] = useState<'number' | 'condition'>('number');
   const [selectedTitles, setSelectedTitles] = useState<string[]>([]);
+  const [totalSelectedCount, setTotalSelectedCount] = useState(0);
   const [searchOption, setSearchOption] = useState<'exact' | 'partial'>('exact');
   const [patentCount, setPatentCount] = useState(0);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showListDialog, setShowListDialog] = useState(false);
   const [searchExpression, setSearchExpression] = useState('S2×S1');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+
   const [patentListData, setPatentListData] = useState<PatentListItem[]>([]);
+  const [rawPatents, setRawPatents] = useState<any[]>([]);
   const [isLoadingTitles, setIsLoadingTitles] = useState(true);
   const [isLoadingPatents, setIsLoadingPatents] = useState(false);
   const [patentDetail, setPatentDetail] = useState<PatentDetail>({
@@ -99,10 +104,52 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
     fTerm: '',
     publicationType: ''
   });
-  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([
-    { id: 'S1', name: '権利者・出願人名', value: '' },
-    { id: 'S2', name: '権利者・出願人名', value: '' }
-  ]);
+  const [numberInput, setNumberInput] = useState('');
+  const [numberType, setNumberType] = useState('publication');
+  const [searchNameField, setSearchNameField] = useState('applicant');
+  const [searchNameValue, setSearchNameValue] = useState('');
+
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+  const [nextHistoryId, setNextHistoryId] = useState(1);
+  const [currentDetailIndex, setCurrentDetailIndex] = useState(0);
+
+  const updateDetailView = (raw: any, index: number) => {
+    if (!raw) return;
+    setPatentDetail({
+      titleCode: raw.title?.titleNo || '',
+      titleName: raw.title?.titleName || '',
+      publicationNo: raw.publicationNum || '',
+      registrationNo: raw.registrationNum || '',
+      applicant: raw.applicantName || '',
+      inventionName: raw.inventionTitle || '',
+      abstract: raw.abstract || '',
+      claims: raw.claims || '',
+      inventor: raw.inventor || '',
+      ipc: raw.fiClassification || '',
+      applicationNo: raw.applicationNum || '',
+      applicationDate: raw.applicationDate ? new Date(raw.applicationDate).toLocaleDateString() : '',
+      publicationDate: raw.publicationDate ? new Date(raw.publicationDate).toLocaleDateString() : '',
+      registrationDate: raw.registrationDate ? new Date(raw.registrationDate).toLocaleDateString() : '',
+      fi: raw.fiClassification || '',
+      fTerm: '',
+      publicationType: ''
+    });
+    setCurrentDetailIndex(index);
+  };
+
+  const handlePrevPatent = () => {
+    if (currentDetailIndex > 0) {
+      const newIndex = currentDetailIndex - 1;
+      updateDetailView(rawPatents[newIndex], newIndex);
+    }
+  };
+
+  const handleNextPatent = () => {
+    if (currentDetailIndex < rawPatents.length - 1) {
+      const newIndex = currentDetailIndex + 1;
+      updateDetailView(rawPatents[newIndex], newIndex);
+    }
+  };
 
   // Fetch titles from API
   useEffect(() => {
@@ -110,15 +157,27 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
       try {
         console.log('🔄 Fetching titles for search...');
         const result = await titleAPI.getAll();
-        
+
         if (result.data) {
-          const titles = result.data.titles || (Array.isArray(result.data) ? result.data : []);
+          let titles: any[] = [];
+          // Robust extraction logic
+          if (result.data.data && Array.isArray(result.data.data.titles)) {
+            titles = result.data.data.titles;
+          } else if (result.data.titles && Array.isArray(result.data.titles)) {
+            titles = result.data.titles;
+          } else if (result.data.data && Array.isArray(result.data.data)) {
+            titles = result.data.data;
+          } else if (Array.isArray(result.data)) {
+            titles = result.data;
+          }
+
           setSearchResults(titles.map((t: any, idx: number) => ({
-            no: t.no || `000${idx + 1}`,
-            title: t.titleName || t.name,
-            dataCount: t.patentCount || 0,
+            id: t.id,
+            no: t.no || t.titleNo || `000${idx + 1}`,
+            title: t.title || t.titleName || t.name,
+            dataCount: Number(t.dataCount || t.patentCount || 0),
             department: t.department || '',
-            responsible: t.creator || ''
+            responsible: t.responsible || t.creator || ''
           })));
         }
       } catch (err) {
@@ -132,7 +191,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedTitles(searchResults.map((r: SearchResult) => r.no));
+      setSelectedTitles(searchResults.map((r: SearchResult) => r.id));
     } else {
       setSelectedTitles([]);
     }
@@ -146,8 +205,156 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
     }
   };
 
-  const handleCountCheck = () => {
-    setPatentCount(34);
+  const handleCountCheck = async () => {
+    if (selectedTitles.length === 0) {
+      alert('タイトルを選択してください。');
+      return;
+    }
+
+    setIsLoadingPatents(true);
+    setPatentCount(0);
+    setPatentListData([]);
+    setRawPatents([]);
+    setPatentDetail({
+      titleCode: '',
+      titleName: '',
+      publicationNo: '',
+      registrationNo: '',
+      applicant: '',
+      inventionName: '',
+      abstract: '',
+      claims: '',
+      inventor: '',
+      ipc: '',
+      applicationNo: '',
+      applicationDate: '',
+      publicationDate: '',
+      registrationDate: '',
+      fi: '',
+      fTerm: '',
+      publicationType: ''
+    });
+    try {
+      let criteria: any = {
+        mode: searchMethod,
+        titleIds: selectedTitles
+      };
+
+      if (searchMethod === 'number') {
+        const numbers = numberInput.split(/[\n\s,]+/).map(s => s.trim()).filter(s => s !== '');
+        if (numbers.length === 0) {
+          alert('番号を入力してください。');
+          setIsLoadingPatents(false);
+          return;
+        }
+        criteria.numbers = numbers;
+        criteria.numberType = numberType;
+        criteria.searchOption = searchOption;
+      } else {
+        // Condition search
+        if (!searchExpression) {
+          alert('検索式を入力してください。');
+          setIsLoadingPatents(false);
+          return;
+        }
+
+        const conditions: Record<string, { field: string; value: string }> = {};
+        historyItems.forEach(item => {
+          conditions[item.id] = { field: item.field, value: item.value };
+        });
+
+        criteria.expression = searchExpression;
+        criteria.conditions = conditions;
+      }
+
+      console.log('🔍 Searching with criteria:', criteria);
+      const result = await patentAPI.search(criteria);
+
+      if (result.data) {
+        const data = result.data.data || result.data;
+        setPatentCount(data.count || 0);
+        const patents = data.patents || [];
+        setRawPatents(patents);
+
+        setPatentListData(patents.map((p: any) => ({
+          documentNo: p.documentNum || '',
+          applicationNo: p.applicationNum || '',
+          applicationDate: p.applicationDate ? new Date(p.applicationDate).toLocaleDateString() : '',
+          publicationDate: p.publicationDate ? new Date(p.publicationDate).toLocaleDateString() : '',
+          inventionName: p.inventionTitle || '',
+          applicant: p.applicantName || '',
+          publicationNo: p.publicationNum || '',
+          announcementNo: p.announcementNum || '',
+          registrationNo: p.registrationNum || '',
+          trialNo: p.appealNum || '',
+          other: p.otherInfo || '',
+          stage: p.statusStage || '',
+          event: p.eventDetail || '',
+          documentUrl: p.documentUrl || ''
+        })));
+
+        // Set the first patent as the default detail view
+        if (patents.length > 0) {
+          updateDetailView(patents[0], 0);
+        }
+
+        alert(`${data.count || 0}件の案件が見つかりました。`);
+      } else if (result.error) {
+        alert(`検索エラー: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      alert('検索中にエラーが発生しました。');
+    } finally {
+      setIsLoadingPatents(false);
+    }
+  };
+
+  const handleConfirmSelection = () => {
+    if (selectedTitles.length === 0) {
+      alert('タイトルを選択してください。');
+      return;
+    }
+    const total = searchResults
+      .filter(r => selectedTitles.includes(r.id))
+      .reduce((sum, r) => sum + r.dataCount, 0);
+    setTotalSelectedCount(total);
+  };
+
+  const handleRowClick = (patent: PatentListItem) => {
+    // We need to find the raw patent data to populate details (abstract, claims etc)
+    const index = rawPatents.findIndex(p => p.documentNum === patent.documentNo);
+    if (index !== -1) {
+      updateDetailView(rawPatents[index], index);
+      setShowDetailDialog(true);
+    }
+  };
+
+  const handleAddHistory = () => {
+    if (!searchNameValue) {
+      alert('検索値を入力してください。');
+      return;
+    }
+
+    const fieldLabels: Record<string, string> = {
+      'document': '文献番号',
+      'application': '出願番号',
+      'applicationDate': '出願日',
+      'publicationDate': '公知日',
+      'inventionName': '発明の名称',
+      'applicant': '出願人/権利者'
+    };
+
+    const newItem: HistoryItem = {
+      id: `S${nextHistoryId}`,
+      name: fieldLabels[searchNameField] || searchNameField,
+      value: searchNameValue,
+      field: searchNameField
+    };
+
+    setHistoryItems([...historyItems, newItem]);
+    setNextHistoryId(nextHistoryId + 1);
+    setSearchNameValue(''); // Clear input
   };
 
   const handleDeleteHistory = (id: string) => {
@@ -156,17 +363,68 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
 
   const handleClearAllHistory = () => {
     setHistoryItems([]);
+    setNextHistoryId(1);
+    setSearchExpression('');
   };
 
   const handleAddToExpression = (text: string) => {
-    setSearchExpression(searchExpression + text);
+    setSearchExpression(prev => prev + text);
   };
 
   const handleHistoryClick = (id: string) => {
-    if (searchExpression) {
-      setSearchExpression(searchExpression + ' ' + id);
+    setSearchExpression(prev => {
+      // Add space if not empty and last char is not an operator or bracket start
+      const lastChar = prev.slice(-1);
+      const needsSpace = prev.length > 0 && !['+', '×', '(', '['].includes(lastChar);
+      // Actually, logic is simpler: just append. User handles syntax.
+      // But maybe we can be smart.
+      return prev + id;
+    });
+  };
+
+  const handleExport = async () => {
+    if (patentCount === 0) {
+      alert('出力するデータがありません。');
+      return;
+    }
+
+    let criteria: any = {
+      mode: searchMethod,
+      titleIds: selectedTitles.length > 0 ? selectedTitles : undefined
+    };
+
+    if (searchMethod === 'number') {
+      const numbers = numberInput.split(/[\n\s,]+/).map(s => s.trim()).filter(s => s !== '');
+      if (numbers.length === 0) {
+        alert('番号を入力してください。');
+        return;
+      }
+      criteria.numbers = numbers;
+      criteria.numberType = numberType;
+      criteria.searchOption = searchOption;
     } else {
-      setSearchExpression(id);
+      if (!searchExpression) {
+        alert('検索式を入力してください。');
+        return;
+      }
+
+      const conditions: Record<string, { field: string; value: string }> = {};
+      historyItems.forEach(item => {
+        conditions[item.id] = { field: item.field, value: item.value };
+      });
+
+      criteria.expression = searchExpression;
+      criteria.conditions = conditions;
+    }
+
+    try {
+      const result = await importExportAPI.exportSearchResults(criteria, 'csv');
+      if (result.error) {
+        alert(`出力エラー: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('出力中にエラーが発生しました。');
     }
   };
 
@@ -175,8 +433,8 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
       {/* Top Buttons */}
       <div className="flex justify-between items-center">
         {onBack && (
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={onBack}
             className="border-2 border-orange-500 text-orange-600 hover:bg-orange-50 px-6"
           >
@@ -184,8 +442,8 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
             タイトル一覧へ戻る
           </Button>
         )}
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           className="border-2 border-gray-400 bg-white hover:bg-gray-50 px-6 ml-auto"
         >
           条件をクリア
@@ -221,7 +479,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
               <div className="mb-4">
                 <span className="bg-orange-500 text-white px-3 py-1 rounded text-sm">タイトル指定</span>
               </div>
-              
+
               {/* Header */}
               <div className="flex items-center gap-4 mb-3">
                 <div className="flex items-center gap-2">
@@ -238,8 +496,12 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
                   </Select>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs">検索済み件数：405 件</span>
-                  <Button size="sm" className="h-7 px-3 text-xs bg-gray-600 hover:bg-gray-700">
+                  <span className="text-xs">検索済み件数: {totalSelectedCount} 件</span>
+                  <Button
+                    size="sm"
+                    className="h-7 px-3 text-xs bg-gray-600 hover:bg-gray-700"
+                    onClick={handleConfirmSelection}
+                  >
                     確認
                   </Button>
                 </div>
@@ -256,7 +518,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
                     <TableRow className="bg-gray-100 hover:bg-gray-100">
                       <TableHead className="w-[60px] border-r text-xs text-center">
                         <div className="flex flex-col items-center gap-1">
-                          <Checkbox 
+                          <Checkbox
                             checked={selectedTitles.length === searchResults.length && searchResults.length > 0}
                             onCheckedChange={handleSelectAll}
                           />
@@ -272,11 +534,11 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
                   </TableHeader>
                   <TableBody>
                     {searchResults.map((result) => (
-                      <TableRow key={result.no} className="hover:bg-gray-50">
+                      <TableRow key={result.id} className="hover:bg-gray-50">
                         <TableCell className="border-r text-center">
-                          <Checkbox 
-                            checked={selectedTitles.includes(result.no)}
-                            onCheckedChange={(checked: boolean | 'indeterminate') => handleSelectTitle(result.no, typeof checked === 'boolean' ? checked : false)}
+                          <Checkbox
+                            checked={selectedTitles.includes(result.id)}
+                            onCheckedChange={(checked: boolean | 'indeterminate') => handleSelectTitle(result.id, typeof checked === 'boolean' ? checked : false)}
                           />
                         </TableCell>
                         <TableCell className="border-r text-xs text-center">{result.no}</TableCell>
@@ -302,7 +564,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
                 <div className="flex gap-4">
                   <div className="w-[200px]">
                     <Label className="text-sm mb-2 block">番号区分</Label>
-                    <Select defaultValue="publication">
+                    <Select value={numberType} onValueChange={setNumberType}>
                       <SelectTrigger className="bg-white border-2 border-gray-300">
                         <SelectValue />
                       </SelectTrigger>
@@ -318,9 +580,11 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
 
                   <div className="flex-1">
                     <Label className="text-sm mb-2 block invisible">入力</Label>
-                    <Textarea 
+                    <Textarea
                       className="min-h-[100px] bg-white border-2 border-gray-300 text-sm"
                       placeholder="特開2025-040365"
+                      value={numberInput}
+                      onChange={(e) => setNumberInput(e.target.value)}
                     />
                   </div>
 
@@ -370,7 +634,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
               <div className="mb-4">
                 <span className="bg-orange-500 text-white px-3 py-1 rounded text-sm">タイトル指定</span>
               </div>
-              
+
               {/* Header */}
               <div className="flex items-center gap-4 mb-3">
                 <div className="flex items-center gap-2">
@@ -387,8 +651,12 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
                   </Select>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs">検索済み件数：405 件</span>
-                  <Button size="sm" className="h-7 px-3 text-xs bg-gray-600 hover:bg-gray-700">
+                  <span className="text-xs">検索済み件数：{totalSelectedCount} 件</span>
+                  <Button
+                    size="sm"
+                    className="h-7 px-3 text-xs bg-gray-600 hover:bg-gray-700"
+                    onClick={handleConfirmSelection}
+                  >
                     確認
                   </Button>
                 </div>
@@ -405,7 +673,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
                     <TableRow className="bg-gray-100 hover:bg-gray-100">
                       <TableHead className="w-[60px] border-r text-xs text-center">
                         <div className="flex flex-col items-center gap-1">
-                          <Checkbox 
+                          <Checkbox
                             checked={selectedTitles.length === searchResults.length && searchResults.length > 0}
                             onCheckedChange={handleSelectAll}
                           />
@@ -421,11 +689,11 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
                   </TableHeader>
                   <TableBody>
                     {searchResults.map((result) => (
-                      <TableRow key={result.no} className="hover:bg-gray-50">
+                      <TableRow key={result.id} className="hover:bg-gray-50">
                         <TableCell className="border-r text-center">
-                          <Checkbox 
-                            checked={selectedTitles.includes(result.no)}
-                            onCheckedChange={(checked: boolean | 'indeterminate') => handleSelectTitle(result.no, typeof checked === 'boolean' ? checked : false)}
+                          <Checkbox
+                            checked={selectedTitles.includes(result.id)}
+                            onCheckedChange={(checked: boolean | 'indeterminate') => handleSelectTitle(result.id, typeof checked === 'boolean' ? checked : false)}
                           />
                         </TableCell>
                         <TableCell className="border-r text-xs text-center">{result.no}</TableCell>
@@ -453,7 +721,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
                 <div className="flex-1">
                   <Label className="text-xs mb-1 block">検索名称</Label>
                   <div className="flex gap-2">
-                    <Select defaultValue="applicant">
+                    <Select value={searchNameField} onValueChange={setSearchNameField}>
                       <SelectTrigger className="bg-white border border-gray-300 h-8 w-[180px] text-xs">
                         <SelectValue />
                       </SelectTrigger>
@@ -466,12 +734,17 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
                         <SelectItem value="applicant">出願人/権利者</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Input className="bg-white border border-gray-300 h-8 text-xs flex-1" />
-                    <Button 
+                    <Input
+                      className="bg-white border border-gray-300 h-8 text-xs flex-1"
+                      value={searchNameValue}
+                      onChange={(e) => setSearchNameValue(e.target.value)}
+                    />
+                    <Button
                       size="sm"
                       className="h-8 px-4 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white"
+                      onClick={handleAddHistory}
                     >
-                      追
+                      追加
                     </Button>
                   </div>
                 </div>
@@ -490,9 +763,9 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
                       <TableHead className="w-[150px] border-r text-xs">項目</TableHead>
                       <TableHead className="border-r text-xs">条件</TableHead>
                       <TableHead className="w-[80px] text-xs text-center">
-                        <Button 
-                          variant="link" 
-                          size="sm" 
+                        <Button
+                          variant="link"
+                          size="sm"
                           className="h-auto p-0 text-xs text-blue-600"
                           onClick={handleClearAllHistory}
                         >
@@ -517,9 +790,9 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
                         <TableCell className="border-r text-xs">{item.name}</TableCell>
                         <TableCell className="border-r text-xs">{item.value}</TableCell>
                         <TableCell className="text-center">
-                          <Button 
-                            variant="link" 
-                            size="sm" 
+                          <Button
+                            variant="link"
+                            size="sm"
                             className="h-auto p-0 text-xs text-blue-600"
                             onClick={() => handleDeleteHistory(item.id)}
                           >
@@ -542,14 +815,14 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
               </div>
 
               <div className="space-y-3">
-                <Input 
+                <Input
                   value={searchExpression}
                   onChange={(e) => setSearchExpression(e.target.value)}
                   className="bg-white border border-gray-300 h-8 text-xs"
                 />
 
                 <div className="flex gap-2">
-                  <Button 
+                  <Button
                     size="sm"
                     variant="outline"
                     className="h-8 px-4 border-gray-300 text-xs"
@@ -557,7 +830,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
                   >
                     Clear
                   </Button>
-                  <Button 
+                  <Button
                     size="sm"
                     variant="outline"
                     className="h-8 px-4 border-gray-300 text-xs"
@@ -565,7 +838,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
                   >
                     [
                   </Button>
-                  <Button 
+                  <Button
                     size="sm"
                     variant="outline"
                     className="h-8 px-4 border-gray-300 text-xs"
@@ -573,15 +846,15 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
                   >
                     ]
                   </Button>
-                  <Button 
+                  <Button
                     size="sm"
                     variant="outline"
                     className="h-8 px-4 border-gray-300 text-xs"
-                    onClick={() => handleAddToExpression('*')}
+                    onClick={() => handleAddToExpression('×')}
                   >
-                    *
+                    ×
                   </Button>
-                  <Button 
+                  <Button
                     size="sm"
                     variant="outline"
                     className="h-8 px-4 border-gray-300 text-xs"
@@ -589,7 +862,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
                   >
                     +
                   </Button>
-                  <Button 
+                  <Button
                     size="sm"
                     variant="outline"
                     className="h-8 px-4 border-gray-300 text-xs"
@@ -625,22 +898,23 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
 
       {/* Bottom Action Buttons */}
       <div className="flex gap-3 justify-center pt-4 border-t-2 border-gray-200">
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           onClick={() => setShowDetailDialog(true)}
           className="border-2 border-orange-400 bg-gradient-to-r from-orange-100 to-yellow-100 hover:from-orange-200 hover:to-yellow-200 px-12 h-10 text-sm min-w-[150px]"
         >
           案件詳細
         </Button>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           onClick={() => setShowListDialog(true)}
           className="border-2 border-orange-400 bg-gradient-to-r from-orange-100 to-yellow-100 hover:from-orange-200 hover:to-yellow-200 px-12 h-10 text-sm min-w-[150px]"
         >
           案件一覧
         </Button>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
+          onClick={handleExport}
           className="border-2 border-orange-400 bg-gradient-to-r from-orange-100 to-yellow-100 hover:from-orange-200 hover:to-yellow-200 px-12 h-10 text-sm min-w-[150px]"
         >
           出力
@@ -651,16 +925,39 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
         <DialogContent className="max-w-5xl max-h-[90vh]">
           <DialogHeader className="border-b pb-4">
-            <DialogTitle className="flex items-center gap-2">
-              <span className="bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
-                書誌・明細書
-              </span>
-            </DialogTitle>
+            <div className="flex justify-between items-center">
+              <DialogTitle className="flex items-center gap-2">
+                <span className="bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
+                  書誌・明細書
+                </span>
+                <span className="text-sm text-gray-500 ml-2">
+                  ({currentDetailIndex + 1} / {rawPatents.length})
+                </span>
+              </DialogTitle>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrevPatent}
+                  disabled={currentDetailIndex === 0}
+                >
+                  前へ
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNextPatent}
+                  disabled={currentDetailIndex === rawPatents.length - 1}
+                >
+                  次へ
+                </Button>
+              </div>
+            </div>
             <DialogDescription className="sr-only">
               特許案件の詳細情報を表示します
             </DialogDescription>
           </DialogHeader>
-          
+
           <ScrollArea className="max-h-[calc(90vh-120px)] pr-4">
             <div className="space-y-4">
               {/* Basic Info Section */}
@@ -776,7 +1073,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
               検索結果の特許案件一覧を表示します
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="overflow-auto px-4 pb-4">
             <Table className="border border-gray-300">
               <TableHeader>
@@ -799,7 +1096,11 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
               </TableHeader>
               <TableBody>
                 {patentListData.map((patent, index) => (
-                  <TableRow key={index} className="hover:bg-gray-50">
+                  <TableRow
+                    key={index}
+                    className="hover:bg-orange-50 cursor-pointer"
+                    onClick={() => handleRowClick(patent)}
+                  >
                     <TableCell className="border-r text-xs whitespace-nowrap px-3 py-2">{patent.documentNo}</TableCell>
                     <TableCell className="border-r text-xs whitespace-nowrap px-3 py-2">{patent.applicationNo}</TableCell>
                     <TableCell className="border-r text-xs whitespace-nowrap px-3 py-2">{patent.applicationDate}</TableCell>

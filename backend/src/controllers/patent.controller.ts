@@ -11,6 +11,7 @@ import {
   getPatentsByCompany,
   importPatents,
   assignPatents,
+  searchPatents,
 } from '../services/patent.service';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { logActivity } from '../middleware/logger.middleware';
@@ -376,6 +377,32 @@ export const assignPatentsController = async (req: AuthRequest, res: Response): 
   } catch (error: any) {
     res.status(error.statusCode || 500).json({
       error: error.message || 'Failed to assign patents',
+    });
+  }
+};
+
+export const searchPatentsController = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const result = await searchPatents(req.body, req.user.id);
+
+    await logActivity(
+      req.user.id,
+      'search',
+      'patent',
+      'search',
+      `Searched patents: ${result.count} found`,
+      req.ip
+    );
+
+    res.json({ data: result });
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({
+      error: error.message || 'Failed to search patents',
     });
   }
 };

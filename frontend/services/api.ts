@@ -287,6 +287,21 @@ const realPatentAPI = {
       body: JSON.stringify({ mode, patentIds, userIds }),
     });
   },
+
+  search: async (criteria: {
+    mode: 'number' | 'condition';
+    searchOption?: 'exact' | 'partial';
+    numbers?: string[];
+    numberType?: string;
+    expression?: string;
+    conditions?: Record<string, { field: string; value: string }>;
+    titleIds?: string[];
+  }) => {
+    return apiCall<{ count: number; patents: any[] }>('/patents/search', {
+      method: 'POST',
+      body: JSON.stringify(criteria),
+    });
+  },
 };
 
 const realImportExportAPI = {
@@ -322,6 +337,38 @@ const realImportExportAPI = {
       allFields: string[];
       defaultFields: string[]
     }>('/export/fields');
+  },
+
+  exportSearchResults: async (criteria: any, format: 'csv' | 'excel' = 'csv') => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/import/search-results`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ criteria, format }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return { error: errorText || 'Export failed' };
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `search_results_${Date.now()}.${format === 'excel' ? 'xlsx' : 'csv'}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      return { success: true };
+    } catch (error: any) {
+      return { error: error.message };
+    }
   },
 };
 

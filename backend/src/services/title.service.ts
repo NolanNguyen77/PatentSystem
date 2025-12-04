@@ -682,16 +682,25 @@ export const getMergeCandidates = async (titleIds: string[], userId: string, use
 
     // Filter out titles with no evaluated patents? Or just fetch evaluated patents.
     // The requirement says "loại bỏ 未評価" (remove unevaluated). 
-    // We will filter patents that are NOT '未評価'.
-    const evaluatedPatents = title.patents.filter((p: any) => p.evaluationStatus !== '未評価');
+    // We will filter patents that are NOT '未評価' and have a value.
+    console.log(`Checking title ${title.titleName} (${title.id}) with ${title.patents.length} patents`);
+    const evaluatedPatents = title.patents.filter((p: any) => {
+      const isValid = p.evaluationStatus && p.evaluationStatus !== '未評価';
+      if (!isValid) {
+        // console.log(`Skipping patent ${p.documentNum}: status is '${p.evaluationStatus}'`);
+      }
+      return isValid;
+    });
+    console.log(`Found ${evaluatedPatents.length} evaluated patents for ${title.titleName}`);
+
+    // Always add the title to validTitles so it appears in the priority list
+    validTitles.push({
+      id: title.id,
+      titleName: title.titleName,
+      titleNo: title.titleNo,
+    });
 
     if (evaluatedPatents.length > 0) {
-      validTitles.push({
-        id: title.id,
-        titleName: title.titleName,
-        titleNo: title.titleNo,
-      });
-
       for (const p of evaluatedPatents) {
         evaluations.push({
           id: p.id,

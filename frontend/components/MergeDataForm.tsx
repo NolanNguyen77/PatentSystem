@@ -318,12 +318,12 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
         </div>
       </Card>
 
-      {/* Section 4: 抽出条件 */}
+      {/* Section 3: 抽出条件 */}
       {showExtractionCondition && (
         <Card className="border-2 border-orange-200 bg-blue-50/30">
           <div className="p-4">
             <div className="mb-4">
-              <span className="bg-orange-500 text-white px-3 py-1 rounded text-sm">④マージデータの抽出条件</span>
+              <span className="bg-orange-500 text-white px-3 py-1 rounded text-sm">③マージデータの抽出条件</span>
             </div>
             <div className="space-y-4">
               {/* Table */}

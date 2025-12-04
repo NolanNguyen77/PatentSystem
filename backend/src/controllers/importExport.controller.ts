@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import multer from 'multer';
-import { importCSV, exportData, getExportFields } from '../services/importExport.service';
+import { importCSV, exportData, getExportFields, exportSearchResults } from '../services/importExport.service';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { logActivity } from '../middleware/logger.middleware';
 import env from '../config/env';
@@ -113,6 +113,41 @@ export const getExportFieldsController = async (req: AuthRequest, res: Response)
   } catch (error: any) {
     res.status(error.statusCode || 500).json({
       error: error.message || 'Failed to get export fields',
+    });
+  }
+};
+
+export const exportSearchResultsController = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const { criteria, format } = req.body;
+    const result = await exportSearchResults(criteria, req.user.id, format);
+
+    await logActivity(
+      req.user.id,
+      'export',
+      'patent',
+      'search_results',
+      `Exported search results in ${format} format`,
+      req.ip
+    );
+
+    if (format === 'excel') {
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename=search_results_${Date.now()}.xlsx`);
+      res.send(result);
+    } else {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=search_results_${Date.now()}.csv`);
+      res.send(result);
+    }
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({
+      error: error.message || 'Failed to export search results',
     });
   }
 };

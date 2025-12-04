@@ -11,6 +11,7 @@ import {
   getPatentsByCompanyController,
   importPatentsController,
   assignPatentsController,
+  searchPatentsController,
 } from '../controllers/patent.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validation.middleware';
@@ -22,6 +23,7 @@ router.use(authenticate);
 
 router.post('/import', importPatentsController);
 router.post('/assign', assignPatentsController);
+router.post('/search', searchPatentsController);
 router.post('/delete-batch', deletePatentsController);
 router.get('/:id', getPatentByIdController);
 router.post('/', validate(createPatentSchema), createPatentController);
