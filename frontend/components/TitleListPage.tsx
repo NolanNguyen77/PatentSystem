@@ -14,9 +14,12 @@ import {
     Search as SearchIcon,
     Trash2,
     Paperclip,
-    FileText
+    FileText,
+    Image as ImageIcon,
+    X,
+    Loader2
 } from 'lucide-react';
-import { titleAPI } from '../services/api';
+import { titleAPI, attachmentAPI, patentAPI } from '../services/api';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
@@ -76,6 +79,12 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [titleToDelete, setTitleToDelete] = useState<any>(null);
+    const [attachments, setAttachments] = useState<any[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [attachmentToDelete, setAttachmentToDelete] = useState<string | null>(null);
+    const [selectedTitleForDataSearch, setSelectedTitleForDataSearch] = useState<any>(null);
+    const [selectedTitleForManualEntry, setSelectedTitleForManualEntry] = useState<any>(null);
 
     // Fetch titles from API
     const fetchTitles = async () => {
@@ -282,9 +291,100 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
         }
     };
 
-    const handleOpenAttachmentDialog = (titleNo: string) => {
+    const fetchAttachments = async (titleId: string) => {
+        try {
+            const result = await attachmentAPI.getAll(titleId);
+            if (result.data) {
+                // Handle nested data structure from API wrapper
+                if (result.data.data && Array.isArray(result.data.data.attachments)) {
+                    setAttachments(result.data.data.attachments);
+                } else if (Array.isArray(result.data.attachments)) {
+                    setAttachments(result.data.attachments);
+                } else {
+                    setAttachments([]);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch attachments:', error);
+            setAttachments([]);
+        }
+    };
+
+    const handleOpenAttachmentDialog = async (titleNo: string) => {
         setSelectedTitleForAttachment(titleNo);
+        // Find the title ID from the title number
+        const title = savedTitles.find(t => t.no === titleNo);
+        if (title && title.id) {
+            await fetchAttachments(title.id);
+        }
         setIsAttachmentDialogOpen(true);
+    };
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            setSelectedFile(e.target.files[0]);
+        }
+    };
+
+    const handleUpload = async () => {
+        if (!selectedFile) return;
+
+        const title = savedTitles.find(t => t.no === selectedTitleForAttachment);
+        if (!title || !title.id) return;
+
+        try {
+            setIsUploading(true);
+            const result = await attachmentAPI.upload(title.id, selectedFile);
+
+            if (result.error) {
+                throw new Error(result.error);
+            }
+
+            await fetchAttachments(title.id);
+            // Refresh titles to update attachment count if needed
+            fetchTitles();
+            setSelectedFile(null); // Clear selection after success
+        } catch (error: any) {
+            console.error('Failed to upload attachment:', error);
+            alert(`ファイルのアップロードに失敗しました: ${error.message || 'Unknown error'}`);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleCloseAttachmentDialog = () => {
+        setIsAttachmentDialogOpen(false);
+        setSelectedFile(null);
+    };
+
+    const handleDeleteAttachment = (attachmentId: string) => {
+        setAttachmentToDelete(attachmentId);
+    };
+
+    const confirmDeleteAttachment = async () => {
+        if (!attachmentToDelete) return;
+
+        const title = savedTitles.find(t => t.no === selectedTitleForAttachment);
+        if (!title || !title.id) return;
+
+        try {
+            await attachmentAPI.delete(attachmentToDelete);
+            await fetchAttachments(title.id);
+            // Refresh titles to update attachment count
+            fetchTitles();
+            setAttachmentToDelete(null);
+        } catch (error) {
+            console.error('Failed to delete attachment:', error);
+            alert('ファイルの削除に失敗しました');
+        }
+    };
+
+    const handleDownloadAttachment = async (attachmentId: string, filename: string) => {
+        const result = await attachmentAPI.download(attachmentId, filename);
+        if (result.error) {
+            console.error('Failed to download attachment:', result.error);
+            alert('ファイルのダウンロードに失敗しました');
+        }
     };
 
     const handleOpenDetailPage = (no: string, title: string, responsible: string, responsibleId: string, id: string) => {
@@ -443,7 +543,13 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                         ) : activeTab === 'search' ? (
                             <TitleSearchForm onBack={() => setActiveTab('list')} />
                         ) : activeTab === 'dataSearch' ? (
-                            <SavedDataSearchForm onBack={() => setActiveTab('list')} />
+                            <SavedDataSearchForm
+                                onBack={() => {
+                                    setActiveTab('list');
+                                    setSelectedTitleForDataSearch(null);
+                                }}
+                                selectedTitle={selectedTitleForDataSearch}
+                            />
                         ) : activeTab === 'titleManagement' ? (
                             <SavedTitleManagement
                                 onBack={() => setActiveTab('list')}
@@ -569,7 +675,10 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                                                     </DropdownMenuItem>
                                                                     <DropdownMenuItem
                                                                         className="cursor-pointer"
-                                                                        onClick={() => setIsManualEntryDialogOpen(true)}
+                                                                        onClick={() => {
+                                                                            setSelectedTitleForManualEntry(item);
+                                                                            setIsManualEntryDialogOpen(true);
+                                                                        }}
                                                                     >
                                                                         <FilePlus className="w-4 h-4 mr-2" />
                                                                         1件ずつ手入力で追加
@@ -586,7 +695,10 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                                                     </DropdownMenuItem>
                                                                     <DropdownMenuItem
                                                                         className="cursor-pointer"
-                                                                        onClick={() => setActiveTab('dataSearch')}
+                                                                        onClick={() => {
+                                                                            setSelectedTitleForDataSearch(item);
+                                                                            setActiveTab('dataSearch');
+                                                                        }}
                                                                     >
                                                                         <SearchIcon className="w-4 h-4 mr-2" />
                                                                         保存データの検索
@@ -677,13 +789,24 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                                             )}
                                                         </TableCell>
                                                         <TableCell className="text-center">
+
                                                             <Button
                                                                 size="sm"
                                                                 variant="ghost"
                                                                 onClick={() => handleOpenAttachmentDialog(item.no)}
-                                                                className="hover:bg-gray-100 group-hover:hover:bg-orange-200"
+                                                                className={`relative hover:bg-gray-100 group-hover:hover:bg-orange-200 ${item.attachments > 0 ? 'text-blue-600 hover:text-blue-700' : 'text-gray-400 hover:text-gray-600'
+                                                                    }`}
                                                             >
-                                                                <Paperclip className="w-4 h-4 text-gray-600 group-hover:text-orange-800" />
+                                                                {item.attachments > 0 ? (
+                                                                    <>
+                                                                        <FileText className="w-4 h-4" />
+                                                                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white border-2 border-white">
+                                                                            {item.attachments}
+                                                                        </span>
+                                                                    </>
+                                                                ) : (
+                                                                    <Paperclip className="w-4 h-4" />
+                                                                )}
                                                             </Button>
                                                         </TableCell>
                                                         <TableCell className="text-center">{item.date}</TableCell>
@@ -722,53 +845,252 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
             </Dialog>
 
             {/* Attachment Upload Dialog */}
-            <Dialog open={isAttachmentDialogOpen} onOpenChange={setIsAttachmentDialogOpen}>
-                <DialogContent className="max-w-3xl">
-                    <DialogHeader className="border-b pb-4">
-                        <DialogTitle className="text-lg">タイトルへの添付資料の編集画面です。</DialogTitle>
+            <Dialog open={isAttachmentDialogOpen} onOpenChange={handleCloseAttachmentDialog}>
+                <DialogContent className="max-w-3xl bg-white border-0 shadow-2xl">
+                    <DialogHeader className="border-b border-gray-100 pb-4">
+                        <DialogTitle className="text-xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
+                            添付資料の管理
+                        </DialogTitle>
+                        <DialogDescription className="text-gray-500">
+                            タイトルに関連する資料をアップロード・管理します
+                        </DialogDescription>
                     </DialogHeader>
-                    <DialogDescription className="sr-only">
-                        ファイルをアップロードして添付資料を追加します
-                    </DialogDescription>
 
-                    <div className="space-y-4 py-4">
+                    <div className="space-y-6 py-6">
                         {/* Upload Area */}
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8">
+                        {/* Upload Area */}
+                        <div className="relative bg-gradient-to-br from-orange-50/50 to-white border-2 border-dashed border-orange-200 rounded-xl p-8 transition-all hover:border-orange-400 hover:shadow-md group">
+                            {!selectedFile && (
+                                <input
+                                    type="file"
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                                    style={{ opacity: 0 }}
+                                    onChange={handleFileSelect}
+                                    disabled={isUploading}
+                                />
+                            )}
                             <div className="flex flex-col items-center justify-center gap-4">
-                                <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
-                                    <Upload className="w-8 h-8 text-gray-400" />
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-sm text-gray-600 mb-2">
-                                        ここにファイルをドロップするか、クリックして選択してください
-                                    </p>
-                                    <Button variant="outline" className="mt-2">
-                                        <Upload className="w-4 h-4 mr-2" />
-                                        ファイルを選択
-                                    </Button>
-                                </div>
+                                {!selectedFile ? (
+                                    <>
+                                        <div className="w-20 h-20 rounded-full bg-orange-50 flex items-center justify-center mb-2 group-hover:bg-orange-100 transition-colors">
+                                            <Upload className="w-10 h-10 text-orange-500" />
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-base font-medium text-gray-700 mb-1">
+                                                ファイルをドラッグ＆ドロップ
+                                            </p>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="w-full max-w-md">
+                                        <div className="bg-white border border-orange-200 rounded-xl p-4 shadow-sm mb-6 flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
+                                                <FileText className="w-6 h-6 text-orange-600" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 truncate">
+                                                    {selectedFile.name}
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    {(selectedFile.size / 1024).toFixed(1)} KB
+                                                </p>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => setSelectedFile(null)}
+                                                className="text-gray-400 hover:text-red-500 hover:bg-red-50"
+                                            >
+                                                <X className="w-5 h-5" />
+                                            </Button>
+                                        </div>
+
+                                        <div className="flex justify-center gap-3">
+                                            <Button
+                                                onClick={handleUpload}
+                                                disabled={isUploading}
+                                                className="bg-orange-500 hover:bg-orange-600 text-white px-8 shadow-lg shadow-orange-200"
+                                            >
+                                                {isUploading ? (
+                                                    <>
+                                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                        アップロード中...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Upload className="w-4 h-4 mr-2" />
+                                                        添付する
+                                                    </>
+                                                )}
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                onClick={() => setSelectedFile(null)}
+                                                disabled={isUploading}
+                                                className="hover:bg-orange-50 hover:text-orange-700"
+                                            >
+                                                キャンセル
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
                         {/* File List Area */}
-                        <div className="border border-gray-200 rounded-lg p-4 min-h-[100px]">
-                            <p className="text-sm text-gray-500 text-center py-8">
-                                添付データのラベル
-                            </p>
+                        <div>
+                            <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                                <Paperclip className="w-4 h-4" />
+                                添付ファイル一覧
+                                <span className="ml-2 text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                                    {attachments.length}件
+                                </span>
+                            </h3>
+
+                            <div className="bg-gray-50/50 rounded-xl border border-gray-200 min-h-[150px] p-4">
+                                {attachments.length === 0 ? (
+                                    <div className="h-full flex flex-col items-center justify-center py-8 text-gray-400">
+                                        <FileText className="w-12 h-12 mb-2 opacity-20" />
+                                        <p className="text-sm">添付ファイルはありません</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 gap-3">
+                                        {attachments.map((file) => (
+                                            <div key={file.id} className="group flex items-center justify-between p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-orange-200 transition-all duration-200">
+                                                <div className="flex items-center gap-4 overflow-hidden">
+                                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 border ${file.mimeType?.startsWith('image/')
+                                                        ? 'bg-orange-50 border-orange-100'
+                                                        : 'bg-orange-50 border-orange-100'
+                                                        }`}>
+                                                        {file.mimeType?.startsWith('image/') ? (
+                                                            <ImageIcon className="w-5 h-5 text-orange-600" />
+                                                        ) : (
+                                                            <FileText className="w-5 h-5 text-orange-600" />
+                                                        )}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-semibold text-gray-800 truncate mb-0.5">
+                                                            {file.originalName}
+                                                        </p>
+                                                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                                                            <span>{(parseInt(file.size) / 1024).toFixed(1)} KB</span>
+                                                            <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                                                            <span>{new Date(file.uploadedAt).toLocaleDateString()}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => handleDownloadAttachment(file.id, file.originalName)}
+                                                        className="h-9 w-9 p-0 rounded-full text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                                        title="ダウンロード"
+                                                    >
+                                                        <Download className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => handleDeleteAttachment(file.id)}
+                                                        className="h-9 w-9 p-0 rounded-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                        title="削除"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </DialogContent>
             </Dialog>
 
             {/* Manual Entry Dialog */}
+            {/* Manual Entry Dialog */}
             <ManualEntryDialog
                 open={isManualEntryDialogOpen}
-                onOpenChange={setIsManualEntryDialogOpen}
-                onSave={(data) => {
-                    console.log('Manual entry data:', data);
-                    // Handle save logic here
+                onOpenChange={(open) => {
+                    setIsManualEntryDialogOpen(open);
+                    if (!open) setSelectedTitleForManualEntry(null);
+                }}
+                onSave={async (data) => {
+                    if (!selectedTitleForManualEntry) return;
+
+                    try {
+                        const patentData = {
+                            ...data,
+                            titleId: selectedTitleForManualEntry.id,
+                            documentNum: data.documentNo,
+                            applicationNum: data.applicationNo,
+                            publicationNum: data.publicationNo,
+                            registrationNum: data.registrationNo,
+                            announcementNum: data.announcementNo,
+                            appealNum: data.appealNo,
+                            inventionTitle: data.inventionName,
+                            applicantName: [data.applicantName, data.applicantName1, data.applicantName2, data.applicantName3].filter(Boolean).join('; '),
+                            otherInfo: data.other,
+                            statusStage: data.stage,
+                            eventDetail: data.event,
+                            fiClassification: data.ipc,
+                            abstract: data.abstract,
+                            claims: data.claims,
+                            // Map dates if they are valid strings, otherwise null or leave as string if backend handles it
+                            applicationDate: data.applicationDate ? new Date(data.applicationDate) : null,
+                            publicationDate: data.publicationDate ? new Date(data.publicationDate) : null,
+                        };
+
+                        const result = await patentAPI.create(patentData);
+                        if (result.error) {
+                            alert(`エラー: ${result.error}`);
+                        } else {
+                            alert('データを保存しました。');
+                            fetchTitles(); // Refresh to update counts
+                        }
+                    } catch (error) {
+                        console.error('Save error:', error);
+                        alert('保存中にエラーが発生しました。');
+                    }
                 }}
             />
+
+            {/* Delete Attachment Confirmation Dialog */}
+            <Dialog open={!!attachmentToDelete} onOpenChange={(open) => !open && setAttachmentToDelete(null)}>
+                <DialogContent className="max-w-sm bg-white border-0 shadow-xl rounded-2xl">
+                    <DialogHeader className="pb-2">
+                        <div className="flex flex-col items-center gap-4 pt-4">
+                            <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center">
+                                <Trash2 className="w-6 h-6 text-orange-500" />
+                            </div>
+                            <DialogTitle className="text-lg font-bold text-gray-900 text-center">
+                                添付ファイルの削除
+                            </DialogTitle>
+                        </div>
+                        <DialogDescription className="text-center text-gray-500 pt-2">
+                            このファイルを削除してもよろしいですか？<br />
+                            この操作は取り消せません。
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex items-center justify-center gap-3 pt-4 pb-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setAttachmentToDelete(null)}
+                            className="flex-1 border-gray-200 hover:bg-gray-50 text-gray-700"
+                        >
+                            キャンセル
+                        </Button>
+                        <Button
+                            onClick={confirmDeleteAttachment}
+                            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-200 border-0"
+                        >
+                            削除する
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

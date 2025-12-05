@@ -94,6 +94,7 @@ export const getAllTitles = async (
       _count: {
         select: {
           patents: true,
+          attachments: true,
         },
       },
     } as any,
@@ -140,7 +141,7 @@ export const getAllTitles = async (
       progressRate: Math.round(progressRate * 10) / 10,
       date: title.saveDate,
       dataType: title.dataType,
-      attachments: 0, // TODO: Count attachments
+      attachments: title._count.attachments || 0,
       markColor: title.markColor || '',
       parentTitleId: title.parentTitleId,
       parentTitle: title.parentTitle ? {

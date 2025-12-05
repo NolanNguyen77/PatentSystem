@@ -49,7 +49,7 @@ export const uploadAttachmentController = async (
     }
 
     const titleId = req.params.id;
-    
+
     // Verify title exists
     const title = await prisma.title.findUnique({
       where: { id: titleId },
@@ -65,7 +65,7 @@ export const uploadAttachmentController = async (
       data: {
         titleId,
         filename: req.file.filename,
-        originalName: req.file.originalname,
+        originalName: Buffer.from(req.file.originalname, 'latin1').toString('utf8'),
         size: BigInt(req.file.size),
         mimeType: req.file.mimetype,
         filePath: req.file.path,
@@ -199,9 +199,15 @@ export const downloadAttachmentController = async (
       throw new AppError('File not found on server', 404);
     }
 
-    res.setHeader('Content-Disposition', `attachment; filename="${attachment.originalName}"`);
-    res.setHeader('Content-Type', attachment.mimeType);
-    res.sendFile(path.resolve(attachment.filePath));
+    res.download(path.resolve(attachment.filePath), attachment.originalName, (err) => {
+      if (err) {
+        if (!res.headersSent) {
+          res.status(500).json({
+            error: 'Failed to download attachment',
+          });
+        }
+      }
+    });
   } catch (error: any) {
     res.status(error.statusCode || 500).json({
       error: error.message || 'Failed to download attachment',

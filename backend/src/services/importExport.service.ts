@@ -267,7 +267,7 @@ export const exportSearchResults = async (
   // Define fields to export
   const fields = [
     '文献番号', '出願番号', '出願日', '公知日', '発明の名称',
-    '出願人', '公開番号', '公告番号', '登録番号', '審判番号',
+    '出願人/権利者', '公開番号', '公告番号', '登録番号', '審判番号',
     'その他', 'ステージ', 'イベント', '文献URL'
   ];
 
@@ -278,7 +278,7 @@ export const exportSearchResults = async (
       '出願日': patent.applicationDate ? new Date(patent.applicationDate).toLocaleDateString() : '',
       '公知日': patent.publicationDate ? new Date(patent.publicationDate).toLocaleDateString() : '',
       '発明の名称': patent.inventionTitle || '',
-      '出願人': patent.applicantName || '',
+      '出願人/権利者': patent.applicantName || '',
       '公開番号': patent.publicationNum || '',
       '公告番号': patent.announcementNum || '',
       '登録番号': patent.registrationNum || '',

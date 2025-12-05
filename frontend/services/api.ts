@@ -25,8 +25,9 @@ async function apiCall<T>(
 ): Promise<{ data?: T; error?: string }> {
   try {
     const token = localStorage.getItem('authToken');
+    const isFormData = options?.body instanceof FormData;
     const headers = {
-      'Content-Type': 'application/json',
+      ...(!isFormData && { 'Content-Type': 'application/json' }),
       ...(token && { Authorization: `Bearer ${token}` }),
       ...options?.headers,
     };
@@ -256,8 +257,8 @@ const realPatentAPI = {
     });
   },
 
-  createManual: async (patentData: any) => {
-    return apiCall<{ id: string; message: string }>('/patents/manual', {
+  create: async (patentData: any) => {
+    return apiCall<{ id: string; message: string }>('/patents', {
       method: 'POST',
       body: JSON.stringify(patentData),
     });
@@ -396,6 +397,35 @@ const realAttachmentAPI = {
     return apiCall<{ message: string }>(`/attachments/${attachmentId}`, {
       method: 'DELETE',
     });
+  },
+
+  download: async (attachmentId: string, filename: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/attachments/${attachmentId}/download`, {
+        method: 'GET',
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Download failed');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      return { success: true };
+    } catch (error: any) {
+      return { error: error.message };
+    }
   },
 };
 
