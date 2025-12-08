@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { ScrollArea } from './ui/scroll-area';
 import { Input } from './ui/input';
 import { titleAPI, patentAPI, importExportAPI } from '../services/api';
+import { notifySuccess, notifyError, notifyWarning, notifyInfo } from '../utils/notifications';
 
 interface TitleSearchFormProps {
   onBack?: () => void;
@@ -207,7 +208,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
 
   const handleCountCheck = async () => {
     if (selectedTitles.length === 0) {
-      alert('タイトルを選択してください。');
+      notifyWarning('タイトルを選択してください');
       return;
     }
 
@@ -243,7 +244,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
       if (searchMethod === 'number') {
         const numbers = numberInput.split(/[\n\s,]+/).map(s => s.trim()).filter(s => s !== '');
         if (numbers.length === 0) {
-          alert('番号を入力してください。');
+          notifyWarning('番号を入力してください');
           setIsLoadingPatents(false);
           return;
         }
@@ -253,7 +254,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
       } else {
         // Condition search
         if (!searchExpression) {
-          alert('検索式を入力してください。');
+          notifyWarning('検索式を入力してください');
           setIsLoadingPatents(false);
           return;
         }
@@ -298,13 +299,13 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
           updateDetailView(patents[0], 0);
         }
 
-        alert(`${data.count || 0}件の案件が見つかりました。`);
+        notifyInfo(`${data.count || 0}件の案件が見つかりました`);
       } else if (result.error) {
-        alert(`検索エラー: ${result.error}`);
+        notifyError('検索エラー', result.error);
       }
     } catch (error) {
       console.error('Search error:', error);
-      alert('検索中にエラーが発生しました。');
+      notifyError('検索中にエラーが発生しました');
     } finally {
       setIsLoadingPatents(false);
     }
@@ -312,7 +313,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
 
   const handleConfirmSelection = () => {
     if (selectedTitles.length === 0) {
-      alert('タイトルを選択してください。');
+      notifyWarning('タイトルを選択してください');
       return;
     }
     const total = searchResults
@@ -332,7 +333,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
 
   const handleAddHistory = () => {
     if (!searchNameValue) {
-      alert('検索値を入力してください。');
+      notifyWarning('検索値を入力してください');
       return;
     }
 
@@ -384,7 +385,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
 
   const handleExport = async () => {
     if (patentCount === 0) {
-      alert('出力するデータがありません。');
+      notifyWarning('出力するデータがありません');
       return;
     }
 
@@ -396,7 +397,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
     if (searchMethod === 'number') {
       const numbers = numberInput.split(/[\n\s,]+/).map(s => s.trim()).filter(s => s !== '');
       if (numbers.length === 0) {
-        alert('番号を入力してください。');
+        notifyWarning('番号を入力してください');
         return;
       }
       criteria.numbers = numbers;
@@ -404,7 +405,7 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
       criteria.searchOption = searchOption;
     } else {
       if (!searchExpression) {
-        alert('検索式を入力してください。');
+        notifyWarning('検索式を入力してください');
         return;
       }
 
@@ -420,11 +421,11 @@ export function TitleSearchForm({ onBack }: TitleSearchFormProps) {
     try {
       const result = await importExportAPI.exportSearchResults(criteria, 'csv');
       if (result.error) {
-        alert(`出力エラー: ${result.error}`);
+        notifyError('出力エラー', result.error);
       }
     } catch (error) {
       console.error('Export error:', error);
-      alert('出力中にエラーが発生しました。');
+      notifyError('出力中にエラーが発生しました');
     }
   };
 

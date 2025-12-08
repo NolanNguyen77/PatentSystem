@@ -1,6 +1,9 @@
 // API Configuration
 const API_BASE_URL = 'http://localhost:4001/api';
 
+// Import notification utilities
+import { notifyAccessDenied, notifyLoginRequired } from '../utils/notifications';
+
 // Toggle between mock and real API
 // Set to 'false' in .env to use real backend API
 // @ts-ignore - Vite env types
@@ -69,6 +72,14 @@ async function apiCall<T>(
           errorMessage = errorText;
         }
       }
+
+      // Show notification for specific error types
+      if (response.status === 403 || errorMessage.toLowerCase().includes('access denied')) {
+        notifyAccessDenied(errorMessage);
+      } else if (response.status === 401) {
+        notifyLoginRequired();
+      }
+
       return { error: errorMessage };
     }
 

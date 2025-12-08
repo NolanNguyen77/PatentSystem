@@ -12,7 +12,7 @@ import {
   DialogDescription,
 } from './ui/dialog';
 import { userAPI, titleAPI, patentAPI } from '../services/api';
-import { toast } from 'sonner';
+import { notifySuccess, notifyError, notifyWarning } from '../utils/notifications';
 
 interface User {
   id: string;
@@ -202,7 +202,7 @@ export function AssignmentDialog({
 
     // Validate
     if (assignmentMode !== 'remove' && selectedUsers.length === 0) {
-      toast.error('ユーザを選択してください');
+      notifyWarning('ユーザを選択してください');
       return;
     }
 
@@ -210,14 +210,14 @@ export function AssignmentDialog({
     let patentsInRange = patents;
     if (!hideRangeSelector) {
       if (from > to || from < 1 || to > totalCount) {
-        toast.error('有効な範囲を指定してください');
+        notifyWarning('有効な範囲を指定してください');
         return;
       }
       patentsInRange = patents.slice(from - 1, to);
     }
 
     if (patentsInRange.length === 0) {
-      toast.error('対象の案件がありません');
+      notifyWarning('対象の案件がありません');
       return;
     }
 
@@ -231,11 +231,11 @@ export function AssignmentDialog({
       );
 
       if (result.error) {
-        toast.error(`エラー: ${result.error}`);
+        notifyError('エラー', result.error);
       } else {
         const modeText = assignmentMode === 'add' ? '追加' :
           assignmentMode === 'replace' ? '置き換え' : '削除';
-        toast.success(`担当者の${modeText}が完了しました（${patentsInRange.length}件）`);
+        notifySuccess(`担当者の${modeText}が完了しました`, `${patentsInRange.length}件`);
 
         // Refresh user list to update counts
         await fetchUsers();
@@ -271,7 +271,7 @@ export function AssignmentDialog({
       }
     } catch (err) {
       console.error('Assignment failed:', err);
-      toast.error('処理中にエラーが発生しました');
+      notifyError('処理中にエラーが発生しました');
     } finally {
       setIsExecuting(false);
     }

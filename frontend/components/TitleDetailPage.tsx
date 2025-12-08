@@ -20,6 +20,7 @@ import {
   TableRow,
 } from './ui/table';
 import { patentAPI } from '../services/api';
+import { notifyWarning } from '../utils/notifications';
 
 interface TitleDetailPageProps {
   titleNo: string;
@@ -314,7 +315,7 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
 
   const handleExportCSV = () => {
     if (allPatents.length === 0) {
-      alert('出力するデータがありません。');
+      notifyWarning('出力するデータがありません');
       return;
     }
 

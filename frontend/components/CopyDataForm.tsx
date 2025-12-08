@@ -5,6 +5,7 @@ import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { titleAPI } from '../services/api';
+import { notifySuccess, notifyError, notifyWarning } from '../utils/notifications';
 
 interface CopyDataFormProps {
   onClose?: () => void;
@@ -61,7 +62,7 @@ export function CopyDataForm({ onClose }: CopyDataFormProps) {
 
   const handleCopyExecute = async () => {
     if (!sourceTitle) {
-      alert('コピー元タイトルを選択してください。');
+      notifyWarning('コピー元タイトルを選択してください');
       return;
     }
 
@@ -98,12 +99,12 @@ export function CopyDataForm({ onClose }: CopyDataFormProps) {
         await titleAPI.copy(sourceTitle, newName, copyProjectData);
       }
 
-      alert(`${count}件のコピーが完了しました。`);
+      notifySuccess(`${count}件のコピーが完了しました`);
       if (onClose) onClose();
       // Optionally trigger a refresh of the title list if there was a callback for it
     } catch (error) {
       console.error('Copy failed:', error);
-      alert('コピーに失敗しました。');
+      notifyError('コピーに失敗しました');
     } finally {
       setIsLoading(false);
     }
