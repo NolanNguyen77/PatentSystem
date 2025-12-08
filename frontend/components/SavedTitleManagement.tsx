@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { ColorSelect } from './ColorSelect';
 import { AssignmentDialog } from './AssignmentDialog';
 import { titleAPI } from '../services/api';
+import { notifySuccess, notifyError } from '../utils/notifications';
 
 interface SavedTitleManagementProps {
   onBack?: () => void;
@@ -403,12 +404,12 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
 
       if (result.error) {
         console.error('❌ Failed to update title:', result.error);
-        alert(`タイトル更新に失敗しました\n\n${result.error}`);
+        notifyError('タイトル更新に失敗しました', result.error);
         return;
       }
 
       console.log('✅ Title updated successfully:', result.data);
-      alert('タイトルを更新しました');
+      notifySuccess('タイトルを更新しました');
 
       // Call onSave callback
       if (onSave) {
@@ -416,7 +417,7 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
       }
     } catch (error) {
       console.error('❌ Error updating title:', error);
-      alert(`タイトル更新中にエラーが発生しました\n\n${error instanceof Error ? error.message : 'Unknown error'}`);
+      notifyError('タイトル更新中にエラーが発生しました', error instanceof Error ? error.message : '不明なエラー');
     }
   };
 

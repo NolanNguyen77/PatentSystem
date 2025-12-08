@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { ScrollArea } from './ui/scroll-area';
 import { Checkbox } from './ui/checkbox';
 import { Loader2 } from 'lucide-react';
+import { notifyWarning } from '../utils/notifications';
 
 interface Patent {
     id: string;
@@ -144,7 +145,7 @@ export function ExportDataDialog({ open, onOpenChange, totalCount = 0, patents =
 
     const handleExport = () => {
         if (patents.length === 0) {
-            alert('出力するデータがありません');
+            notifyWarning('出力するデータがありません');
             return;
         }
 

@@ -35,6 +35,7 @@ import { SavedTitleManagement } from './SavedTitleManagement';
 import { ManualEntryDialog } from './ManualEntryDialog';
 import { ExportDataDialog } from './ExportDataDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { notifySuccess, notifyError, notifyWarning, notifyInfo } from '../utils/notifications';
 import {
     Table,
     TableBody,
@@ -205,11 +206,11 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
 
             if (result.error) {
                 console.error('❌ API Error:', result.error);
-                alert(`タイトルの取得に失敗しました: ${result.error}`);
+                notifyError('タイトル取得エラー', result.error);
             }
         } catch (error) {
             console.error('❌ Error fetching titles:', error);
-            alert(`タイトルの取得中にエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            notifyError('タイトル取得エラー', error instanceof Error ? error.message : '不明なエラー');
             setSavedTitles([]);
         } finally {
             setIsLoading(false);
@@ -244,7 +245,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
     // Export タイトル一覧 to CSV
     const handleExportTitleList = () => {
         if (filteredTitles.length === 0) {
-            alert('出力するデータがありません');
+            notifyWarning('出力するデータがありません');
             return;
         }
 
@@ -419,7 +420,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
             setSelectedFile(null); // Clear selection after success
         } catch (error: any) {
             console.error('Failed to upload attachment:', error);
-            alert(`ファイルのアップロードに失敗しました: ${error.message || 'Unknown error'}`);
+            notifyError('アップロード失敗', error.message || '不明なエラー');
         } finally {
             setIsUploading(false);
         }
@@ -448,7 +449,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
             setAttachmentToDelete(null);
         } catch (error) {
             console.error('Failed to delete attachment:', error);
-            alert('ファイルの削除に失敗しました');
+            notifyError('ファイルの削除に失敗しました');
         }
     };
 
@@ -456,7 +457,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
         const result = await attachmentAPI.download(attachmentId, filename);
         if (result.error) {
             console.error('Failed to download attachment:', result.error);
-            alert('ファイルのダウンロードに失敗しました');
+            notifyError('ファイルのダウンロードに失敗しました');
         }
     };
 
@@ -1135,14 +1136,14 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
 
                         const result = await patentAPI.create(patentData);
                         if (result.error) {
-                            alert(`エラー: ${result.error}`);
+                            notifyError('エラー', result.error);
                         } else {
-                            alert('データを保存しました。');
+                            notifySuccess('データを保存しました');
                             fetchTitles(); // Refresh to update counts
                         }
                     } catch (error) {
                         console.error('Save error:', error);
-                        alert('保存中にエラーが発生しました。');
+                        notifyError('保存中にエラーが発生しました');
                     }
                 }}
             />

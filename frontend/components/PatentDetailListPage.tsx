@@ -14,7 +14,8 @@ import { AssignmentDialog } from './AssignmentDialog';
 import { DetailDialog } from './DetailDialog';
 import { ExportDataDialog } from './ExportDataDialog';
 import { patentAPI, evaluationAPI } from '../services/api';
-import { toast } from 'sonner';
+import { notifyError, notifySuccess, notifyInfo } from '../utils/notifications';
+
 
 interface PatentDetailListPageProps {
   titleNo: string;
@@ -279,7 +280,7 @@ export function PatentDetailListPage({
       setSelectedIds(new Set());
     } catch (err) {
       console.error('Failed to delete patents:', err);
-      alert('削除に失敗しました');
+      notifyError('削除に失敗しました');
     } finally {
       setIsDeleting(false);
     }
@@ -292,7 +293,7 @@ export function PatentDetailListPage({
 
   const handleSave = async () => {
     if (!resolvedTitleId && !titleId) {
-      toast.error('タイトルIDが見つかりません');
+      notifyError('タイトルIDが見つかりません');
       return;
     }
 
@@ -321,7 +322,7 @@ export function PatentDetailListPage({
         }));
 
       if (evaluations.length === 0) {
-        toast.info('変更された評価がありません');
+        notifyInfo('変更された評価がありません');
         return;
       }
 
@@ -331,12 +332,12 @@ export function PatentDetailListPage({
       );
 
       if (result.error) {
-        toast.error(`エラー: ${result.error}`);
+        notifyError('エラー', result.error);
       } else {
         const payload = (result.data as any)?.data ?? result.data ?? {};
         const created = payload.created ?? 0;
         const updated = payload.updated ?? 0;
-        toast.success(`評価を保存しました（新規: ${created}件、更新: ${updated}件）`);
+        notifySuccess(`評価を保存しました（新規: ${created}件、更新: ${updated}件）`);
         await fetchPatents();
         if (onEvaluationSaved) {
           onEvaluationSaved();
@@ -344,7 +345,7 @@ export function PatentDetailListPage({
       }
     } catch (err) {
       console.error('Failed to save evaluations:', err);
-      toast.error('保存中にエラーが発生しました');
+      notifyError('保存中にエラーが発生しました');
     } finally {
       setIsSaving(false);
     }

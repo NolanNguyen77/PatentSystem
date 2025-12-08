@@ -10,6 +10,7 @@ import { Input } from './ui/input';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { titleAPI, mergeAPI } from '../services/api';
 import { ArrowUp, ArrowDown } from 'lucide-react';
+import { notifySuccess, notifyError, notifyWarning } from '../utils/notifications';
 
 interface MergeDataFormProps {
   onBack?: () => void;
@@ -104,7 +105,7 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
 
   const handleSelectTitles = async () => {
     if (selectedTitles.length === 0) {
-      alert('タイトルを選択してください。');
+      notifyWarning('タイトルを選択してください');
       return;
     }
 
@@ -132,11 +133,11 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
         }
         setShowExtractionCondition(true);
       } else if (result.error) {
-        alert(result.error);
+        notifyError('エラー', result.error);
       }
     } catch (error) {
       console.error('Error fetching merge candidates:', error);
-      alert('マージ候補の取得に失敗しました。');
+      notifyError('マージ候補の取得に失敗しました');
     } finally {
       setIsLoading(false);
     }
@@ -170,7 +171,7 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
 
   const handleMerge = async () => {
     if (!mergeTitle || !department || selectedTitles.length === 0) {
-      alert('データタイトル名、部門、マージタイトルを選択してください。');
+      notifyWarning('データタイトル名、部門、マージタイトルを選択してください');
       return;
     }
 
@@ -184,14 +185,14 @@ export function MergeDataForm({ onBack }: MergeDataFormProps) {
       });
 
       if (result.data) {
-        alert('マージを実行しました。');
+        notifySuccess('マージを実行しました');
         if (onBack) onBack();
       } else if (result.error) {
-        alert(result.error);
+        notifyError('エラー', result.error);
       }
     } catch (error) {
       console.error('Merge failed:', error);
-      alert('マージに失敗しました。');
+      notifyError('マージに失敗しました');
     } finally {
       setIsLoading(false);
     }

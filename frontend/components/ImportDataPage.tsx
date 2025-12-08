@@ -3,6 +3,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Upload, FileText, X, ChevronRight, ArrowLeft, CheckCircle } from 'lucide-react';
+import { notifySuccess, notifyError } from '../utils/notifications';
 import {
   Select,
   SelectContent,
@@ -255,11 +256,11 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
       } else {
         const errorData = await res.json();
         console.error('❌ Import failed:', errorData);
-        alert(`インポートに失敗しました: ${errorData.error || '不明なエラー'}`);
+        notifyError('インポート失敗', errorData.error || '不明なエラー');
       }
     } catch (err) {
       console.error('❌ Error processing import:', err);
-      alert('インポート処理中にエラーが発生しました。');
+      notifyError('インポート処理中にエラーが発生しました');
     } finally {
       setIsLoading(false);
     }
