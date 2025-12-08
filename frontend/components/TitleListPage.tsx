@@ -85,6 +85,9 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
     const [attachmentToDelete, setAttachmentToDelete] = useState<string | null>(null);
     const [selectedTitleForDataSearch, setSelectedTitleForDataSearch] = useState<any>(null);
     const [selectedTitleForManualEntry, setSelectedTitleForManualEntry] = useState<any>(null);
+    const [selectedTitleForExport, setSelectedTitleForExport] = useState<any>(null);
+    const [exportPatents, setExportPatents] = useState<any[]>([]);
+    const [isLoadingExportPatents, setIsLoadingExportPatents] = useState(false);
 
     // Fetch titles from API
     const fetchTitles = async () => {
@@ -236,6 +239,76 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
         setSearchQuery('');
         await fetchTitles();
         setIsRefreshing(false);
+    };
+
+    // Export タイトル一覧 to CSV
+    const handleExportTitleList = () => {
+        if (filteredTitles.length === 0) {
+            alert('出力するデータがありません');
+            return;
+        }
+
+        // Create CSV content with BOM for Excel compatibility
+        const BOM = '\uFEFF';
+
+        // Header row matching the image layout
+        const headers = [
+            'タイトルNo',
+            'タイトル名',
+            '部署名',
+            '主担当者',
+            '対象件数',
+            '評価済',
+            '未評価',
+            'ゴミ箱',
+            '調査進捗率',
+            '作成年月'
+        ].join(',');
+
+        // Data rows
+        const rows = filteredTitles.map(item => {
+            const progressPercent = item.progressRate || 0;
+
+            // Format date (YYYY/MM)
+            const formattedDate = item.date ? item.date.slice(0, 7).replace('-', '/') : '';
+
+            const rowData = [
+                item.no || '',
+                item.title || '',
+                item.department || '',
+                item.responsible || '',
+                item.dataCount || 0,
+                item.evaluated || 0,
+                item.notEvaluated || 0,
+                item.trash || 0,
+                `${progressPercent}%`,
+                formattedDate
+            ];
+
+            // Escape and format each value
+            return rowData.map(value => {
+                const strValue = String(value);
+                if (strValue.includes(',') || strValue.includes('"') || strValue.includes('\n')) {
+                    return `"${strValue.replace(/"/g, '""')}"`;
+                }
+                return strValue;
+            }).join(',');
+        });
+
+        const csvContent = BOM + 'タイトル一覧表\n\n' + headers + '\n' + rows.join('\n');
+
+        // Create and download file
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `タイトル一覧_${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        console.log('Exported', filteredTitles.length, 'titles to CSV');
     };
 
     const handleSaveTitle = async (titleData: any) => {
@@ -588,7 +661,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                         <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
                                         {isRefreshing ? '更新中...' : '更新'}
                                     </Button>
-                                    <Button variant="outline" className="h-12 border-2">
+                                    <Button variant="outline" className="h-12 border-2" onClick={handleExportTitleList}>
                                         <Download className="w-4 h-4 mr-2" />
                                         エクスポート
                                     </Button>
@@ -668,7 +741,22 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                                                     </DropdownMenuItem>
                                                                     <DropdownMenuItem
                                                                         className="cursor-pointer"
-                                                                        onClick={() => setIsExportDialogOpen(true)}
+                                                                        onClick={async () => {
+                                                                            setSelectedTitleForExport(item);
+                                                                            setIsLoadingExportPatents(true);
+                                                                            setIsExportDialogOpen(true);
+                                                                            try {
+                                                                                const result = await patentAPI.getByTitle(item.id, { includeFullText: false });
+                                                                                const payload = result.data?.data ?? result.data ?? result;
+                                                                                const patentList = Array.isArray(payload?.patents) ? payload.patents : [];
+                                                                                setExportPatents(patentList);
+                                                                            } catch (error) {
+                                                                                console.error('Failed to fetch patents for export:', error);
+                                                                                setExportPatents([]);
+                                                                            } finally {
+                                                                                setIsLoadingExportPatents(false);
+                                                                            }
+                                                                        }}
                                                                     >
                                                                         <FileDown className="w-4 h-4 mr-2" />
                                                                         保存データ全件出力
@@ -784,7 +872,9 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                                                             style={{ width: `${item.progressRate}%` }}
                                                                         ></div>
                                                                     </div>
-                                                                    <span className="text-sm">{item.progressRate}%</span>
+                                                                    <span className="text-sm w-12 text-right tabular-nums">
+                                                                        {Number.isInteger(item.progressRate) ? item.progressRate : item.progressRate?.toFixed(1)}%
+                                                                    </span>
                                                                 </div>
                                                             )}
                                                         </TableCell>
@@ -1058,7 +1148,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
             />
 
             {/* Delete Attachment Confirmation Dialog */}
-            <Dialog open={!!attachmentToDelete} onOpenChange={(open) => !open && setAttachmentToDelete(null)}>
+            <Dialog open={!!attachmentToDelete} onOpenChange={(open: boolean) => !open && setAttachmentToDelete(null)}>
                 <DialogContent className="max-w-sm bg-white border-0 shadow-xl rounded-2xl">
                     <DialogHeader className="pb-2">
                         <div className="flex flex-col items-center gap-4 pt-4">
@@ -1174,6 +1264,22 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Export Data Dialog */}
+            <ExportDataDialog
+                open={isExportDialogOpen}
+                onOpenChange={(open) => {
+                    setIsExportDialogOpen(open);
+                    if (!open) {
+                        setSelectedTitleForExport(null);
+                        setExportPatents([]);
+                    }
+                }}
+                totalCount={exportPatents.length}
+                patents={exportPatents}
+                isLoading={isLoadingExportPatents}
+                titleName={selectedTitleForExport?.title || ''}
+            />
 
         </div >
     );
