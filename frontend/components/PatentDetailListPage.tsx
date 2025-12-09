@@ -466,18 +466,19 @@ export function PatentDetailListPage({
       <div className="container mx-auto px-4 py-4">
         <div className="space-y-4">
           {patents.map((patent) => (
-            <div key={patent.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-              <div className="flex gap-4 p-4 items-start">
-                {/* Left Panel - Patent Info - Fixed height */}
-                <div className="patent-info-box">
-                  <div className="bg-gradient-to-r from-orange-500 to-yellow-500 px-4 py-2 text-white text-sm flex items-center gap-2 flex-shrink-0 rounded-t-lg">
+            <div key={patent.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
+              <div className="flex gap-4 p-4 items-stretch">
+                {/* Left Panel - Patent Info - Height fits content */}
+                <div className="w-[320px] flex-shrink-0 border border-blue-100 rounded-lg bg-white flex flex-col overflow-hidden shadow-sm max-h-full">
+                  <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-white text-sm flex items-center gap-2 flex-shrink-0 font-medium">
                     <Checkbox
                       checked={selectedIds.has(patent.id)}
                       onCheckedChange={(checked: boolean) => handleSelectOne(patent.id, checked)}
+                      className="border-white data-[state=checked]:bg-white data-[state=checked]:text-blue-600"
                     />
                     特許情報
                   </div>
-                  <div className="patent-info-content">
+                  <div className="overflow-y-auto custom-scrollbar">
                     {[
                       { label: '【文献番号】', value: patent.documentNum, bold: true },
                       { label: '【出願番号】', value: patent.applicationNum },
@@ -561,12 +562,6 @@ export function PatentDetailListPage({
                         )}
                       </div>
                     </div>
-
-                    {/* Filler to extend border to bottom */}
-                    <div className="flex flex-1">
-                      <div className="w-[120px] bg-gray-50 border-r border-gray-100 flex-shrink-0"></div>
-                      <div className="flex-1"></div>
-                    </div>
                   </div>
 
 
@@ -574,38 +569,60 @@ export function PatentDetailListPage({
 
 
                 {/* Right Panel - Details - Independent height */}
-                <div className="flex-1 space-y-4 flex flex-col">
+                <div className="flex-1 space-y-4 flex flex-col min-h-0 h-full">
                   {/* Two Column Section */}
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Left Column */}
-                    <div className="border border-gray-200 rounded-lg p-3 bg-white">
-                      <div className="space-y-2">
-                        <div className="text-sm text-gray-600">【出願人/権利者】</div>
-                        <div className="text-sm mb-3">{patent.applicantName || '-'}</div>
-                        <div className="text-sm text-gray-600 mb-1">【要約】</div>
-                        {/* Scrollable abstract section */}
-                        <div className="scrollable-patent-box">
-                          {patent.abstract || '-'}
+                  <div className="grid grid-cols-2 gap-4 h-[300px] flex-shrink-0">
+                    {/* Left Column - Applicant & Abstract */}
+                    <div className="border border-orange-200 rounded-lg p-3 bg-orange-50/50 flex flex-col h-full shadow-sm">
+                      <div className="space-y-2 flex flex-col h-full">
+                        <div>
+                          <div className="text-xs text-orange-700 font-semibold mb-1 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                            出願人/権利者
+                          </div>
+                          <div className="text-sm font-medium text-gray-900 truncate">{patent.applicantName || '-'}</div>
+                        </div>
+                        <div className="flex-1 flex flex-col min-h-0">
+                          <div className="text-xs text-orange-700 font-semibold mb-1 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                            要約
+                          </div>
+                          <div className="h-[220px] overflow-y-auto p-2 bg-white/80 rounded border border-orange-100 text-xs leading-relaxed custom-scrollbar relative">
+                            {patent.abstract || '-'}
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Right Column */}
-                    <div className="border border-gray-200 rounded-lg p-3 bg-white">
-                      <div className="space-y-2">
-                        <div className="text-sm text-gray-600">【発明の名称】</div>
-                        <div className="text-sm mb-3">{patent.inventionTitle || '-'}</div>
-                        <div className="text-sm text-gray-600 mb-1">【請求の範囲】</div>
-                        <div className="scrollable-patent-box">
-                          {patent.claims || '-'}
+                    {/* Right Column - Title & Claims */}
+                    <div className="border border-emerald-200 rounded-lg p-3 bg-emerald-50/50 flex flex-col h-full shadow-sm">
+                      <div className="space-y-2 flex flex-col h-full">
+                        <div>
+                          <div className="text-xs text-emerald-700 font-semibold mb-1 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            発明の名称
+                          </div>
+                          <div className="text-sm font-medium text-gray-900 truncate">{patent.inventionTitle || '-'}</div>
+                        </div>
+                        <div className="flex-1 flex flex-col min-h-0">
+                          <div className="text-xs text-emerald-700 font-semibold mb-1 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            請求の範囲
+                          </div>
+                          <div className="h-[220px] overflow-y-auto p-2 bg-white/80 rounded border border-emerald-100 text-xs leading-relaxed custom-scrollbar relative">
+                            {patent.claims || '-'}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Evaluation Section - flex-1 to fill remaining space */}
-                  <div className="evaluation-box">
-                    <div className="text-sm font-medium">【評価】</div>
+                  <div className="flex-1 bg-violet-50/50 rounded-lg p-4 border border-violet-200 shadow-sm flex flex-col gap-3 min-h-0">
+                    <div className="text-sm font-bold text-violet-800 flex items-center gap-2">
+                      <span className="w-2 h-6 bg-violet-600 rounded-sm"></span>
+                      評価エリア
+                    </div>
 
                     <div className="flex items-center gap-4">
                       <Button

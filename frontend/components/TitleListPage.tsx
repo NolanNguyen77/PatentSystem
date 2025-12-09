@@ -509,7 +509,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
             {/* Floating Header */}
             {/* Dashboard Header - Clean White Style */}
             <div className="sticky top-4 z-50 w-full px-4 mb-8">
-                <header className="container mx-auto max-w-7xl">
+                <header className="container mx-auto">
                     <div className="bg-white rounded-2xl shadow-2xl border-b-4 border-purple-600 relative flex items-center justify-between px-8 py-6 transition-all duration-300">
 
                         {/* Left: Brand */}
@@ -530,33 +530,33 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                             <Button
                                 variant="ghost"
                                 onClick={() => setActiveTab('create')}
-                                className="flex items-center gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 text-base font-bold border border-transparent hover:border-orange-200 transition-all px-4 py-2"
+                                className="group flex items-center gap-2 px-4 py-2 rounded-lg text-slate-700 hover:text-orange-600 hover:bg-orange-50 hover:-translate-y-1 hover:shadow-md transition-all duration-300 text-[15px] font-medium"
                             >
-                                <FilePlus className="w-5 h-5" />
+                                <FilePlus className="w-4 h-4 group-hover:scale-110 transition-transform duration-300" />
                                 作成
                             </Button>
                             <Button
                                 variant="ghost"
                                 onClick={() => setIsCopyDialogOpen(true)}
-                                className="flex items-center gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 text-base font-bold border border-transparent hover:border-orange-200 transition-all px-4 py-2"
+                                className="group flex items-center gap-2 px-4 py-2 rounded-lg text-slate-700 hover:text-orange-600 hover:bg-orange-50 hover:-translate-y-1 hover:shadow-md transition-all duration-300 text-[15px] font-medium"
                             >
-                                <Copy className="w-5 h-5" />
+                                <Copy className="w-4 h-4 group-hover:scale-110 transition-transform duration-300" />
                                 コピー
                             </Button>
                             <Button
                                 variant="ghost"
                                 onClick={() => setActiveTab('merge')}
-                                className="flex items-center gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 text-base font-bold border border-transparent hover:border-orange-200 transition-all px-4 py-2"
+                                className="group flex items-center gap-2 px-4 py-2 rounded-lg text-slate-700 hover:text-orange-600 hover:bg-orange-50 hover:-translate-y-1 hover:shadow-md transition-all duration-300 text-[15px] font-medium"
                             >
-                                <Layers className="w-5 h-5" />
+                                <Layers className="w-4 h-4 group-hover:scale-110 transition-transform duration-300" />
                                 マージ
                             </Button>
                             <Button
                                 variant="ghost"
                                 onClick={() => setActiveTab('search')}
-                                className="flex items-center gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 text-base font-bold border border-transparent hover:border-orange-200 transition-all px-4 py-2"
+                                className="group flex items-center gap-2 px-4 py-2 rounded-lg text-slate-700 hover:text-orange-600 hover:bg-orange-50 hover:-translate-y-1 hover:shadow-md transition-all duration-300 text-[15px] font-medium"
                             >
-                                <MagnifyingGlass className="w-5 h-5" />
+                                <MagnifyingGlass className="w-4 h-4 group-hover:scale-110 transition-transform duration-300" />
                                 検索
                             </Button>
                         </div>
@@ -674,104 +674,114 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                             {/* Stats Cards - Modern Grid Layout with Glow Effects */}
                             {/* Stats Cards - Flex Layout Force 3 Columns */}
                             {/* Stats Cards - Forced Separation and Rounding */}
-                            <div className="flex flex-row w-full" style={{ gap: '40px' }}>
-                                {/* Card 1: Blue Theme */}
+                            <div className="flex flex-row w-full gap-6">
+                                {/* Card 1: Saved Titles - Blue Theme */}
                                 <motion.div
-                                    className="flex-1 min-w-0"
+                                    className="flex-1"
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: 0.1 }}
                                 >
-                                    <div className="h-full group perspective-1000">
-                                        <Card
-                                            style={{ borderRadius: '30px' }}
-                                            className="h-full border-2 border-blue-100 bg-gradient-to-br from-white to-blue-50/80 shadow-lg shadow-blue-100/50 hover:shadow-2xl hover:shadow-blue-200/50 hover:-translate-y-2 hover:scale-[1.02] transition-all duration-300 ease-out cursor-default overflow-hidden relative"
-                                        >
-                                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/50 rounded-bl-[100px] -mr-10 -mt-10 transition-transform duration-500 group-hover:scale-110"></div>
-                                            <CardContent className="p-8 relative z-10">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-3">保存タイトル数</p>
-                                                        <h3 className="text-5xl font-black text-slate-800 tracking-tighter drop-shadow-sm group-hover:text-blue-700 transition-colors">{totalTitles}</h3>
-                                                    </div>
-                                                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl shadow-lg flex items-center justify-center group-hover:rotate-6 transition-transform duration-300">
-                                                        <FileDigit className="w-8 h-8" />
-                                                    </div>
-                                                </div>
-                                                <div className="mt-8 flex items-center gap-2 text-sm font-semibold text-slate-500 bg-white/60 w-fit px-3 py-1 rounded-full backdrop-blur-sm border border-white/50">
-                                                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
-                                                    全タイトル の合計
-                                                </div>
-                                            </CardContent>
-                                        </Card>
+                                    <div className="relative h-full bg-white rounded-2xl p-6 shadow-lg shadow-blue-100/50 border border-blue-50 group hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-200/50 transition-all duration-300">
+                                        <div className="absolute right-0 top-0 w-32 h-32 bg-gradient-to-br from-blue-50 to-transparent rounded-bl-full opacity-60 -z-10"></div>
+
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="p-3 rounded-xl bg-blue-50 text-blue-600 group-hover:scale-105 transition-transform duration-300">
+                                                <FileText className="w-6 h-6" />
+                                            </div>
+                                            <div className="flex items-center gap-1 bg-green-50 px-2 py-1 rounded-lg">
+                                                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                                                <span className="text-[10px] font-bold text-green-700">ACTIVE</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-bold text-gray-400 tracking-wide">保存タイトル数</p>
+                                            <div className="flex items-baseline gap-2">
+                                                <h3 className="text-4xl font-extrabold text-slate-800 tracking-tight">{totalTitles}</h3>
+                                                <span className="text-sm font-semibold text-gray-400">titles</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2">
+                                            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                                <div className="bg-blue-500 h-full rounded-full" style={{ width: '100%' }}></div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </motion.div>
 
-                                {/* Card 2: Green Theme */}
+                                {/* Card 2: Total Data - Green Theme */}
                                 <motion.div
-                                    className="flex-1 min-w-0"
+                                    className="flex-1"
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: 0.2 }}
                                 >
-                                    <div className="h-full group perspective-1000">
-                                        <Card
-                                            style={{ borderRadius: '30px' }}
-                                            className="h-full border-2 border-green-100 bg-gradient-to-br from-white to-green-50/80 shadow-lg shadow-green-100/50 hover:shadow-2xl hover:shadow-green-200/50 hover:-translate-y-2 hover:scale-[1.02] transition-all duration-300 ease-out cursor-default overflow-hidden relative"
-                                        >
-                                            <div className="absolute top-0 right-0 w-32 h-32 bg-green-100/50 rounded-bl-[100px] -mr-10 -mt-10 transition-transform duration-500 group-hover:scale-110"></div>
-                                            <CardContent className="p-8 relative z-10">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-3">総データ件数</p>
-                                                        <h3 className="text-5xl font-black text-slate-800 tracking-tighter drop-shadow-sm group-hover:text-emerald-700 transition-colors">{totalPatents.toLocaleString()}</h3>
-                                                    </div>
-                                                    <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-green-600 text-white rounded-2xl shadow-lg flex items-center justify-center group-hover:rotate-6 transition-transform duration-300">
-                                                        <Database className="w-8 h-8" />
-                                                    </div>
-                                                </div>
-                                                <div className="mt-8 flex items-center gap-2 text-sm font-semibold text-slate-500 bg-white/60 w-fit px-3 py-1 rounded-full backdrop-blur-sm border border-white/50">
-                                                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                                                    登録データ の合計
-                                                </div>
-                                            </CardContent>
-                                        </Card>
+                                    <div className="relative h-full bg-white rounded-2xl p-6 shadow-lg shadow-emerald-100/50 border border-emerald-50 group hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-200/50 transition-all duration-300">
+                                        <div className="absolute right-0 top-0 w-32 h-32 bg-gradient-to-br from-emerald-50 to-transparent rounded-bl-full opacity-60 -z-10"></div>
+
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600 group-hover:scale-105 transition-transform duration-300">
+                                                <Database className="w-6 h-6" />
+                                            </div>
+                                            <div className="flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg">
+                                                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                                <span className="text-[10px] font-bold text-emerald-700">TOTAL</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-bold text-gray-400 tracking-wide">総データ件数</p>
+                                            <div className="flex items-baseline gap-2">
+                                                <h3 className="text-4xl font-extrabold text-slate-800 tracking-tight">{totalPatents.toLocaleString()}</h3>
+                                                <span className="text-sm font-semibold text-gray-400">items</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2">
+                                            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                                <div className="bg-emerald-500 h-full rounded-full" style={{ width: '100%' }}></div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </motion.div>
 
-                                {/* Card 3: Purple Theme */}
+                                {/* Card 3: Avg Progress - Purple Theme */}
                                 <motion.div
-                                    className="flex-1 min-w-0"
+                                    className="flex-1"
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: 0.3 }}
                                 >
-                                    <div className="h-full group perspective-1000">
-                                        <Card
-                                            style={{ borderRadius: '30px' }}
-                                            className="h-full border-2 border-purple-100 bg-gradient-to-br from-white to-purple-50/80 shadow-lg shadow-purple-100/50 hover:shadow-2xl hover:shadow-purple-200/50 hover:-translate-y-2 hover:scale-[1.02] transition-all duration-300 ease-out cursor-default overflow-hidden relative"
-                                        >
-                                            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-100/50 rounded-bl-[100px] -mr-10 -mt-10 transition-transform duration-500 group-hover:scale-110"></div>
-                                            <CardContent className="p-8 relative z-10">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <p className="text-xs font-bold text-purple-600 uppercase tracking-widest mb-3">平均進捗率</p>
-                                                        <h3 className="text-5xl font-black text-slate-800 tracking-tighter drop-shadow-sm group-hover:text-purple-700 transition-colors">{avgProgress}<span className="text-2xl ml-1 text-slate-400 font-bold">%</span></h3>
-                                                    </div>
-                                                    <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white rounded-2xl shadow-lg flex items-center justify-center group-hover:rotate-6 transition-transform duration-300">
-                                                        <BarChart3 className="w-8 h-8" />
-                                                    </div>
-                                                </div>
-                                                <div className="mt-8">
-                                                    <div className="h-3 w-full bg-slate-100/80 rounded-full overflow-hidden border border-white/50">
-                                                        <div
-                                                            className="h-full bg-gradient-to-r from-purple-500 to-fuchsia-500 rounded-full shadow-[0_0_10px_rgba(168,85,247,0.4)]"
-                                                            style={{ width: `${avgProgress}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
+                                    <div className="relative h-full bg-white rounded-2xl p-6 shadow-lg shadow-purple-100/50 border border-purple-50 group hover:-translate-y-1 hover:shadow-xl hover:shadow-purple-200/50 transition-all duration-300">
+                                        <div className="absolute right-0 top-0 w-32 h-32 bg-gradient-to-br from-purple-50 to-transparent rounded-bl-full opacity-60 -z-10"></div>
+
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="p-3 rounded-xl bg-purple-50 text-purple-600 group-hover:scale-105 transition-transform duration-300">
+                                                <BarChart3 className="w-6 h-6" />
+                                            </div>
+                                            <div className="flex items-center gap-1 bg-purple-50 px-2 py-1 rounded-lg">
+                                                <span className="text-[10px] font-bold text-purple-700">AVERAGE</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-bold text-gray-400 tracking-wide">平均進捗率</p>
+                                            <div className="flex items-baseline gap-2">
+                                                <h3 className="text-4xl font-extrabold text-slate-800 tracking-tight">{avgProgress}<span className="text-2xl ml-0.5">%</span></h3>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2">
+                                            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                                <div
+                                                    className="bg-gradient-to-r from-purple-500 to-pink-500 h-full rounded-full transition-all duration-1000 ease-out"
+                                                    style={{ width: `${avgProgress}%` }}
+                                                ></div>
+                                            </div>
+                                            <span className="text-xs font-bold text-purple-600">{avgProgress}%</span>
+                                        </div>
                                     </div>
                                 </motion.div>
                             </div>

@@ -53,43 +53,45 @@ export default function App() {
   }
 
   return (
-    <AnimatePresence mode="wait">
-      {view === 'dashboard' && (
-        <motion.div
-          key="dashboard"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.3 }}
-        >
-          <TitleListPage username={username} onLogout={handleLogout} />
-        </motion.div>
-      )}
+    <>
+      <AnimatePresence mode="wait">
+        {view === 'dashboard' && (
+          <motion.div
+            key="dashboard"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <TitleListPage username={username} onLogout={handleLogout} />
+          </motion.div>
+        )}
 
-      {view === 'login' && (
-        <motion.div
-          key="login"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.3 }}
-        >
-          <LoginPage onLogin={handleLogin} />
-        </motion.div>
-      )}
+        {view === 'login' && (
+          <motion.div
+            key="login"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <LoginPage onLogin={handleLogin} />
+          </motion.div>
+        )}
 
-      {view === 'landing' && (
-        <motion.div
-          key="landing"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.3 }}
-        >
-          <HomePage onNavigateToLogin={() => setView('login')} />
-        </motion.div>
-      )}
+        {view === 'landing' && (
+          <motion.div
+            key="landing"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <HomePage onNavigateToLogin={() => setView('login')} />
+          </motion.div>
+        )}
+      </AnimatePresence>
       <Toaster />
-    </AnimatePresence>
+    </>
   );
 }
