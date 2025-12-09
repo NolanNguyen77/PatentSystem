@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Save, AlertCircle, Plus, Trash2, Search, ArrowLeft, Users } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -19,6 +20,8 @@ interface SavedTitleManagementProps {
   onSave?: (titleData: any) => void;
   titleData?: any; // Pre-populated data for existing title
 }
+
+const MotionTableRow = motion(TableRow);
 
 export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleManagementProps) {
   // Pre-populate with existing title data
@@ -422,7 +425,13 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
   };
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.4 }}
+      className="space-y-6"
+    >
       {/* Header with title */}
       <div className="flex items-center gap-4 mb-4">
         {onBack && (
@@ -666,8 +675,13 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {selectedUsers.map((user) => (
-                  <TableRow key={user.id}>
+                {selectedUsers.map((user, index) => (
+                  <MotionTableRow
+                    key={user.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
                     <TableCell>
                       <Button size="sm" variant="outline" className="h-8">
                         新規
@@ -735,7 +749,7 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </TableCell>
-                  </TableRow>
+                  </MotionTableRow>
                 ))}
               </TableBody>
             </Table>
@@ -906,6 +920,6 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   );
 }

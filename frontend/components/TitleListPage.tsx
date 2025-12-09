@@ -17,12 +17,24 @@ import {
     FileText,
     Image as ImageIcon,
     X,
-    Loader2
+    Loader2,
+    BarChart3,
+    FileDigit,
+    Percent,
+    Layers,
+    Database,
+    Copy,
+    Search as MagnifyingGlass,
+    ChevronDown,
+    ShieldCheck,
+    Languages
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { titleAPI, attachmentAPI, patentAPI } from '../services/api';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
+import { Card, CardContent } from './ui/card';
 import { TitleDetailPage } from './TitleDetailPage';
 import { PatentDetailListPage } from './PatentDetailListPage';
 import { CreateTitleForm } from './CreateTitleForm';
@@ -56,6 +68,10 @@ interface TitleListPageProps {
     username: string;
     onLogout: () => void;
 }
+
+
+
+const MotionTableRow = motion(TableRow);
 
 export function TitleListPage({ username, onLogout }: TitleListPageProps) {
     const [searchQuery, setSearchQuery] = useState('');
@@ -220,6 +236,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
     // Fetch titles on component mount
     useEffect(() => {
         fetchTitles();
+        console.log('🍊 Orange Dashboard Loaded');
     }, []);
 
     // Filter titles based on search query
@@ -478,76 +495,118 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
         }
     };
 
+    const totalTitles = filteredTitles.length;
+    const totalPatents = filteredTitles.reduce((acc, curr) => acc + (curr.dataCount || 0), 0);
+    const avgProgress = totalTitles > 0
+        ? Math.round(filteredTitles.reduce((acc, curr) => acc + (curr.progressRate || 0), 0) / totalTitles)
+        : 0;
+
     return (
-        <div className="min-h-screen">
+        <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-blue-50">
             {/* Header */}
-            <header className="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 text-white shadow-xl">
-                <div className="container mx-auto px-4 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                                    <Lightbulb className="w-7 h-7" />
-                                </div>
-                                <div>
-                                    <h1 className="text-2xl">特許ナビ</h1>
-                                </div>
+            {/* Header */}
+            {/* Header */}
+            {/* Floating Header */}
+            {/* Dashboard Header - Clean White Style */}
+            <div className="sticky top-4 z-50 w-full px-4 mb-8">
+                <header className="container mx-auto max-w-7xl">
+                    <div className="bg-white rounded-2xl shadow-2xl border-b-4 border-purple-600 relative flex items-center justify-between px-8 py-6 transition-all duration-300">
+
+                        {/* Left: Brand */}
+                        <div className="flex items-center gap-4 cursor-pointer group hover:opacity-90 transition-opacity" onClick={() => setActiveTab('list')}>
+                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-200 group-hover:scale-105 transition-transform z-10">
+                                <Lightbulb className="w-8 h-8 text-white stroke-[2.5]" />
                             </div>
+                            <span
+                                className="text-3xl tracking-tight text-slate-800 drop-shadow-sm"
+                                style={{ fontFamily: '"M PLUS Rounded 1c", sans-serif', fontWeight: 800 }}
+                            >
+                                特許ナビ
+                            </span>
                         </div>
 
+                        {/* Center: Action Navigation - Forced Visible */}
                         <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg backdrop-blur-sm">
-                                <User className="w-4 h-4" />
-                                <span>{username}さん</span>
-                            </div>
                             <Button
                                 variant="ghost"
-                                onClick={onLogout}
-                                className="text-white hover:bg-white/20"
+                                onClick={() => setActiveTab('create')}
+                                className="flex items-center gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 text-base font-bold border border-transparent hover:border-orange-200 transition-all px-4 py-2"
                             >
-                                <LogOut className="w-4 h-4 mr-2" />
-                                ログアウト
+                                <FilePlus className="w-5 h-5" />
+                                作成
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                onClick={() => setIsCopyDialogOpen(true)}
+                                className="flex items-center gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 text-base font-bold border border-transparent hover:border-orange-200 transition-all px-4 py-2"
+                            >
+                                <Copy className="w-5 h-5" />
+                                コピー
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                onClick={() => setActiveTab('merge')}
+                                className="flex items-center gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 text-base font-bold border border-transparent hover:border-orange-200 transition-all px-4 py-2"
+                            >
+                                <Layers className="w-5 h-5" />
+                                マージ
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                onClick={() => setActiveTab('search')}
+                                className="flex items-center gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 text-base font-bold border border-transparent hover:border-orange-200 transition-all px-4 py-2"
+                            >
+                                <MagnifyingGlass className="w-5 h-5" />
+                                検索
                             </Button>
                         </div>
-                    </div>
-                </div>
-            </header>
 
-            {/* Navigation */}
-            <nav className="bg-gradient-to-r from-gray-900 to-gray-800 text-white shadow-lg">
-                <div className="container mx-auto px-4">
-                    <div className="flex items-center gap-1 py-2">
-                        <Button
-                            variant="ghost"
-                            onClick={() => setActiveTab('create')}
-                            className={`text-white hover:bg-white/20 hover:text-white rounded-lg ${activeTab === 'create' ? 'bg-white/20' : ''}`}
-                        >
-                            新規タイトル作成
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            onClick={() => setIsCopyDialogOpen(true)}
-                            className={`text-white hover:bg-white/20 hover:text-white rounded-lg ${activeTab === 'copy' ? 'bg-white/20' : ''}`}
-                        >
-                            保存データのコピー
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            onClick={() => setActiveTab('merge')}
-                            className={`text-white hover:bg-white/20 hover:text-white rounded-lg ${activeTab === 'merge' ? 'bg-white/20' : ''}`}
-                        >
-                            保存データのマージ
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            onClick={() => setActiveTab('search')}
-                            className={`text-white hover:bg-white/20 hover:text-white rounded-lg ${activeTab === 'search' ? 'bg-white/20' : ''}`}
-                        >
-                            タイトル画面検索
-                        </Button>
+                        {/* Right: User Profile & Dropdown */}
+                        <div className="flex items-center">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button className="flex items-center gap-3 bg-white hover:bg-green-50 px-4 py-2 rounded-full border border-gray-200 hover:border-green-200 transition-all cursor-pointer shadow-sm outline-none focus:ring-2 focus:ring-green-100">
+                                        <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center border border-green-200 group-hover:bg-green-200 transition-colors">
+                                            <User className="w-5 h-5 text-green-700" />
+                                        </div>
+                                        <div className="flex flex-col items-start pr-2">
+                                            <span className="font-bold text-sm text-gray-800">{username}</span>
+                                        </div>
+                                        <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-green-600 transition-colors" />
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" sideOffset={8} className="w-72 p-2 bg-white rounded-xl shadow-2xl border border-gray-100 !z-[9999]">
+                                    <div className="space-y-1">
+                                        <DropdownMenuItem className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg flex items-center gap-3 transition-colors cursor-pointer group/item">
+                                            <div className="p-2 bg-blue-100 text-blue-600 rounded-md group-hover/item:bg-blue-200 transition-colors"><User className="w-5 h-5" /></div>
+                                            <span className="flex-1">プロフィール</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg flex items-center gap-3 transition-colors cursor-pointer group/item">
+                                            <div className="p-2 rounded-md transition-colors" style={{ backgroundColor: '#f3e8ff', color: '#9333ea' }}> <ShieldCheck className="w-5 h-5" /></div>
+                                            <span className="flex-1">権限</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg flex items-center gap-3 transition-colors cursor-pointer group/item">
+                                            <div className="p-2 rounded-md transition-colors" style={{ backgroundColor: '#fce7f3', color: '#db2777' }}><Settings className="w-5 h-5" /></div>
+                                            <span className="flex-1">外観</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg flex items-center gap-3 transition-colors cursor-pointer group/item">
+                                            <div className="p-2 rounded-md transition-colors" style={{ backgroundColor: '#ccfbf1', color: '#0d9488' }}><Languages className="w-5 h-5" /></div>
+                                            <span className="flex-1">言語</span>
+                                        </DropdownMenuItem>
+                                    </div>
+                                    <DropdownMenuSeparator className="my-2 bg-gray-100" />
+                                    <DropdownMenuItem onClick={onLogout} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-3 transition-colors cursor-pointer focus:bg-red-50 focus:text-red-700 group/item">
+                                        <div className="p-2 bg-red-100 text-red-600 rounded-md group-hover/item:bg-red-200 transition-colors"><LogOut className="w-5 h-5" /></div>
+                                        <span className="flex-1">ログアウト</span>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
                     </div>
-                </div>
-            </nav>
+                </header>
+            </div>
+
+            {/* Navigation is removed, replaced by Dashboard Actions */}
 
             {/* Main Content */}
             {activeTab === 'import' ? (
@@ -607,7 +666,121 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                 />
             ) : (
                 <main className="container mx-auto px-4 py-8">
-                    <div className="bg-white rounded-2xl shadow-xl p-8">
+                    {/* Dashboard Summary & Actions */}
+                    {activeTab === 'list' && (
+                        <div className="mb-8 space-y-6">
+                            {/* Stats Cards */}
+                            {/* Stats Cards - Flex Layout Force 3 Columns */}
+                            {/* Stats Cards - Modern Grid Layout with Glow Effects */}
+                            {/* Stats Cards - Flex Layout Force 3 Columns */}
+                            {/* Stats Cards - Forced Separation and Rounding */}
+                            <div className="flex flex-row w-full" style={{ gap: '40px' }}>
+                                {/* Card 1: Blue Theme */}
+                                <motion.div
+                                    className="flex-1 min-w-0"
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.1 }}
+                                >
+                                    <div className="h-full group perspective-1000">
+                                        <Card
+                                            style={{ borderRadius: '30px' }}
+                                            className="h-full border-2 border-blue-100 bg-gradient-to-br from-white to-blue-50/80 shadow-lg shadow-blue-100/50 hover:shadow-2xl hover:shadow-blue-200/50 hover:-translate-y-2 hover:scale-[1.02] transition-all duration-300 ease-out cursor-default overflow-hidden relative"
+                                        >
+                                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/50 rounded-bl-[100px] -mr-10 -mt-10 transition-transform duration-500 group-hover:scale-110"></div>
+                                            <CardContent className="p-8 relative z-10">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-3">保存タイトル数</p>
+                                                        <h3 className="text-5xl font-black text-slate-800 tracking-tighter drop-shadow-sm group-hover:text-blue-700 transition-colors">{totalTitles}</h3>
+                                                    </div>
+                                                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl shadow-lg flex items-center justify-center group-hover:rotate-6 transition-transform duration-300">
+                                                        <FileDigit className="w-8 h-8" />
+                                                    </div>
+                                                </div>
+                                                <div className="mt-8 flex items-center gap-2 text-sm font-semibold text-slate-500 bg-white/60 w-fit px-3 py-1 rounded-full backdrop-blur-sm border border-white/50">
+                                                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                                                    全タイトル の合計
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                </motion.div>
+
+                                {/* Card 2: Green Theme */}
+                                <motion.div
+                                    className="flex-1 min-w-0"
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.2 }}
+                                >
+                                    <div className="h-full group perspective-1000">
+                                        <Card
+                                            style={{ borderRadius: '30px' }}
+                                            className="h-full border-2 border-green-100 bg-gradient-to-br from-white to-green-50/80 shadow-lg shadow-green-100/50 hover:shadow-2xl hover:shadow-green-200/50 hover:-translate-y-2 hover:scale-[1.02] transition-all duration-300 ease-out cursor-default overflow-hidden relative"
+                                        >
+                                            <div className="absolute top-0 right-0 w-32 h-32 bg-green-100/50 rounded-bl-[100px] -mr-10 -mt-10 transition-transform duration-500 group-hover:scale-110"></div>
+                                            <CardContent className="p-8 relative z-10">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-3">総データ件数</p>
+                                                        <h3 className="text-5xl font-black text-slate-800 tracking-tighter drop-shadow-sm group-hover:text-emerald-700 transition-colors">{totalPatents.toLocaleString()}</h3>
+                                                    </div>
+                                                    <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-green-600 text-white rounded-2xl shadow-lg flex items-center justify-center group-hover:rotate-6 transition-transform duration-300">
+                                                        <Database className="w-8 h-8" />
+                                                    </div>
+                                                </div>
+                                                <div className="mt-8 flex items-center gap-2 text-sm font-semibold text-slate-500 bg-white/60 w-fit px-3 py-1 rounded-full backdrop-blur-sm border border-white/50">
+                                                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                                    登録データ の合計
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                </motion.div>
+
+                                {/* Card 3: Purple Theme */}
+                                <motion.div
+                                    className="flex-1 min-w-0"
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.3 }}
+                                >
+                                    <div className="h-full group perspective-1000">
+                                        <Card
+                                            style={{ borderRadius: '30px' }}
+                                            className="h-full border-2 border-purple-100 bg-gradient-to-br from-white to-purple-50/80 shadow-lg shadow-purple-100/50 hover:shadow-2xl hover:shadow-purple-200/50 hover:-translate-y-2 hover:scale-[1.02] transition-all duration-300 ease-out cursor-default overflow-hidden relative"
+                                        >
+                                            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-100/50 rounded-bl-[100px] -mr-10 -mt-10 transition-transform duration-500 group-hover:scale-110"></div>
+                                            <CardContent className="p-8 relative z-10">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <p className="text-xs font-bold text-purple-600 uppercase tracking-widest mb-3">平均進捗率</p>
+                                                        <h3 className="text-5xl font-black text-slate-800 tracking-tighter drop-shadow-sm group-hover:text-purple-700 transition-colors">{avgProgress}<span className="text-2xl ml-1 text-slate-400 font-bold">%</span></h3>
+                                                    </div>
+                                                    <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white rounded-2xl shadow-lg flex items-center justify-center group-hover:rotate-6 transition-transform duration-300">
+                                                        <BarChart3 className="w-8 h-8" />
+                                                    </div>
+                                                </div>
+                                                <div className="mt-8">
+                                                    <div className="h-3 w-full bg-slate-100/80 rounded-full overflow-hidden border border-white/50">
+                                                        <div
+                                                            className="h-full bg-gradient-to-r from-purple-500 to-fuchsia-500 rounded-full shadow-[0_0_10px_rgba(168,85,247,0.4)]"
+                                                            style={{ width: `${avgProgress}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                </motion.div>
+                            </div>
+
+
+                        </div>
+                    )}
+
+                    <div className="bg-white rounded-2xl shadow-xl p-8 border border-orange-100">
                         {activeTab === 'create' ? (
                             <CreateTitleForm onBack={() => setActiveTab('list')} onSave={handleSaveTitle} />
                         ) : activeTab === 'copy' ? (
@@ -668,244 +841,253 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                     </Button>
                                 </div>
 
-                                {/* Table */}
-                                <div className="border-2 border-gray-200 rounded-xl overflow-hidden">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow className="bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 hover:to-blue-100">
-                                                <TableHead className="w-[100px]"></TableHead>
-                                                <TableHead className="w-[100px]">No</TableHead>
-                                                <TableHead>保存データタイトル</TableHead>
-                                                <TableHead className="text-center">用途</TableHead>
-                                                <TableHead>部署名</TableHead>
-                                                <TableHead>主担当者</TableHead>
-                                                <TableHead className="text-center">データ件数</TableHead>
-                                                <TableHead className="text-center">評価済</TableHead>
-                                                <TableHead className="text-center">未評価</TableHead>
-                                                <TableHead className="text-center">ゴミ箱</TableHead>
-                                                <TableHead className="text-center">評価進捗率</TableHead>
-                                                <TableHead className="text-center">添付</TableHead>
-                                                <TableHead className="text-center">保存年月</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {isLoading ? (
-                                                <TableRow>
-                                                    <TableCell colSpan={13} className="text-center py-8">
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <RefreshCw className="w-5 h-5 animate-spin text-orange-500" />
-                                                            <span className="text-gray-500">読み込み中...</span>
-                                                        </div>
-                                                    </TableCell>
+                                {/* Table Container with Sticky Header */}
+                                <div className="border border-gray-100 rounded-2xl overflow-hidden shadow-sm bg-white ring-1 ring-gray-50">
+                                    <div className="max-h-[70vh] overflow-y-auto relative scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+                                        <Table>
+                                            <TableHeader className="sticky top-0 z-20 bg-gray-50/95 backdrop-blur shadow-sm">
+                                                <TableRow className="border-b border-gray-100 hover:bg-transparent">
+                                                    <TableHead className="w-[100px]"></TableHead>
+                                                    <TableHead className="w-[80px] text-xs font-semibold text-gray-500 uppercase tracking-wider py-4">No</TableHead>
+                                                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider py-4">保存データタイトル</TableHead>
+                                                    <TableHead className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider py-4">用途</TableHead>
+                                                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider py-4">部署名</TableHead>
+                                                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider py-4">主担当者</TableHead>
+                                                    <TableHead className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider py-4">データ件数</TableHead>
+                                                    <TableHead className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider py-4">評価済</TableHead>
+                                                    <TableHead className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider py-4">未評価</TableHead>
+                                                    <TableHead className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider py-4">ゴミ箱</TableHead>
+                                                    <TableHead className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider py-4">評価進捗率</TableHead>
+                                                    <TableHead className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider py-4">添付</TableHead>
+                                                    <TableHead className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider py-4">保存年月</TableHead>
                                                 </TableRow>
-                                            ) : filteredTitles.length === 0 ? (
-                                                <TableRow>
-                                                    <TableCell colSpan={13} className="text-center py-8">
-                                                        <div className="flex flex-col items-center gap-2">
-                                                            <p className="text-gray-500">タイトルがありません</p>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={handleRefresh}
-                                                                className="mt-2"
-                                                            >
-                                                                <RefreshCw className="w-4 h-4 mr-2" />
-                                                                再読み込み
-                                                            </Button>
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ) : (
-                                                filteredTitles.map((item, index) => (
-                                                    <TableRow key={index} className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-yellow-50 transition-all group">
-                                                        <TableCell>
-                                                            <DropdownMenu>
-                                                                <DropdownMenuTrigger asChild>
-                                                                    <Button
-                                                                        size="sm"
-                                                                        className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white"
-                                                                    >
-                                                                        <Menu className="w-4 h-4 mr-1" />
-                                                                        MENU
-                                                                    </Button>
-                                                                </DropdownMenuTrigger>
-                                                                <DropdownMenuContent align="start" className="w-56">
-                                                                    <DropdownMenuItem
-                                                                        className="cursor-pointer"
-                                                                        onClick={() => {
-                                                                            setSelectedTitleForManagement(item);
-                                                                            setActiveTab('titleManagement');
-                                                                        }}
-                                                                    >
-                                                                        <Settings className="w-4 h-4 mr-2" />
-                                                                        保存タイトル管理
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem
-                                                                        className="cursor-pointer"
-                                                                        onClick={async () => {
-                                                                            setSelectedTitleForExport(item);
-                                                                            setIsLoadingExportPatents(true);
-                                                                            setIsExportDialogOpen(true);
-                                                                            try {
-                                                                                const result = await patentAPI.getByTitle(item.id, { includeFullText: false });
-                                                                                const payload = result.data?.data ?? result.data ?? result;
-                                                                                const patentList = Array.isArray(payload?.patents) ? payload.patents : [];
-                                                                                setExportPatents(patentList);
-                                                                            } catch (error) {
-                                                                                console.error('Failed to fetch patents for export:', error);
-                                                                                setExportPatents([]);
-                                                                            } finally {
-                                                                                setIsLoadingExportPatents(false);
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        <FileDown className="w-4 h-4 mr-2" />
-                                                                        保存データ全件出力
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem
-                                                                        className="cursor-pointer"
-                                                                        onClick={() => {
-                                                                            setSelectedTitleForManualEntry(item);
-                                                                            setIsManualEntryDialogOpen(true);
-                                                                        }}
-                                                                    >
-                                                                        <FilePlus className="w-4 h-4 mr-2" />
-                                                                        1件ずつ手入力で追加
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem
-                                                                        className="cursor-pointer"
-                                                                        onClick={() => {
-                                                                            setSelectedTitleForImport({ no: item.no, name: item.title });
-                                                                            setActiveTab('import');
-                                                                        }}
-                                                                    >
-                                                                        <Upload className="w-4 h-4 mr-2" />
-                                                                        データのインポート
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem
-                                                                        className="cursor-pointer"
-                                                                        onClick={() => {
-                                                                            setSelectedTitleForDataSearch(item);
-                                                                            setActiveTab('dataSearch');
-                                                                        }}
-                                                                    >
-                                                                        <SearchIcon className="w-4 h-4 mr-2" />
-                                                                        保存データの検索
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuSeparator />
-                                                                    <DropdownMenuItem
-                                                                        className="cursor-pointer text-red-600 focus:text-red-600"
-                                                                        onClick={() => {
-                                                                            setTitleToDelete(item);
-                                                                            setShowDeleteDialog(true);
-                                                                        }}
-                                                                    >
-                                                                        <Trash2 className="w-4 h-4 mr-2" />
-                                                                        このタイトルを削除
-                                                                    </DropdownMenuItem>
-                                                                </DropdownMenuContent>
-                                                            </DropdownMenu>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {isLoading ? (
+                                                    <TableRow>
+                                                        <TableCell colSpan={13} className="text-center py-8">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                <RefreshCw className="w-5 h-5 animate-spin text-orange-500" />
+                                                                <span className="text-gray-500">読み込み中...</span>
+                                                            </div>
                                                         </TableCell>
-                                                        <TableCell>{item.no}</TableCell>
-                                                        <TableCell>
-                                                            <button
-                                                                onClick={() => handleOpenDetailPage(item.no, item.title, item.responsible, item.responsibleId, item.id)}
-                                                                className="flex items-center gap-1 hover:text-orange-600 transition-colors w-full"
-                                                            >
-                                                                {/* Indent for child titles */}
-                                                                {item.parentTitleId && (
-                                                                    <span className="text-gray-400 text-sm mr-1 ml-6">└</span>
-                                                                )}
-                                                                {item.markColor && (
-                                                                    <div
-                                                                        className="w-1 h-6 rounded-full flex-shrink-0"
-                                                                        style={{ backgroundColor: item.markColor }}
-                                                                    />
-                                                                )}
-                                                                <span className="hover:underline text-left">
-                                                                    {item.title}
-                                                                </span>
-                                                            </button>
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            {getDataTypeIcon(item.dataType)}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge variant="outline" className="bg-blue-50 border-blue-300 text-blue-700 group-hover:bg-orange-100 group-hover:border-orange-300 group-hover:text-orange-800">
-                                                                {item.department}
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell>{item.responsible}</TableCell>
-                                                        <TableCell className="text-center">
-                                                            {(item.dataCount > 0 || !item.title.includes('コピー')) && (
-                                                                <Badge className="bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 border-0 group-hover:bg-orange-200 group-hover:text-orange-800">
-                                                                    {item.dataCount}
-                                                                </Badge>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            {(item.dataCount > 0 || !item.title.includes('コピー')) && (
-                                                                <Badge className="bg-green-100 text-green-700 border-0 group-hover:bg-orange-200 group-hover:text-orange-800">
-                                                                    {item.evaluated}
-                                                                </Badge>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            {(item.dataCount > 0 || !item.title.includes('コピー')) && (
-                                                                <Badge className="bg-orange-100 text-orange-700 border-0 group-hover:bg-orange-200 group-hover:text-orange-800">
-                                                                    {item.notEvaluated}
-                                                                </Badge>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            {(item.dataCount > 0 || !item.title.includes('コピー')) && (
-                                                                <Badge className="bg-gray-100 text-gray-700 border-0 group-hover:bg-orange-200 group-hover:text-orange-800">
-                                                                    {item.trash}
-                                                                </Badge>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            {(item.dataCount > 0 || !item.title.includes('コピー')) && (
-                                                                <div className="flex items-center justify-center gap-2">
-                                                                    <div className="w-24 bg-gray-200 rounded-full h-2 group-hover:bg-orange-200">
-                                                                        <div
-                                                                            className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full group-hover:from-orange-600 group-hover:to-yellow-600"
-                                                                            style={{ width: `${item.progressRate}%` }}
-                                                                        ></div>
-                                                                    </div>
-                                                                    <span className="text-sm w-12 text-right tabular-nums">
-                                                                        {Number.isInteger(item.progressRate) ? item.progressRate : item.progressRate?.toFixed(1)}%
-                                                                    </span>
-                                                                </div>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-
-                                                            <Button
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                onClick={() => handleOpenAttachmentDialog(item.no)}
-                                                                className={`relative hover:bg-gray-100 group-hover:hover:bg-orange-200 ${item.attachments > 0 ? 'text-blue-600 hover:text-blue-700' : 'text-gray-400 hover:text-gray-600'
-                                                                    }`}
-                                                            >
-                                                                {item.attachments > 0 ? (
-                                                                    <>
-                                                                        <FileText className="w-4 h-4" />
-                                                                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white border-2 border-white">
-                                                                            {item.attachments}
-                                                                        </span>
-                                                                    </>
-                                                                ) : (
-                                                                    <Paperclip className="w-4 h-4" />
-                                                                )}
-                                                            </Button>
-                                                        </TableCell>
-                                                        <TableCell className="text-center">{item.date}</TableCell>
                                                     </TableRow>
-                                                ))
-                                            )}
-                                        </TableBody>
-                                    </Table>
+                                                ) : filteredTitles.length === 0 ? (
+                                                    <TableRow>
+                                                        <TableCell colSpan={13} className="text-center py-8">
+                                                            <div className="flex flex-col items-center gap-2">
+                                                                <p className="text-gray-500">タイトルがありません</p>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={handleRefresh}
+                                                                    className="mt-2"
+                                                                >
+                                                                    <RefreshCw className="w-4 h-4 mr-2" />
+                                                                    再読み込み
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ) : (
+                                                    filteredTitles.map((item, index) => (
+                                                        <MotionTableRow
+                                                            key={item.id || index}
+                                                            initial={{ opacity: 0, x: -20 }}
+                                                            animate={{ opacity: 1, x: 0 }}
+                                                            exit={{ opacity: 0, x: 20 }}
+                                                            transition={{ duration: 0.3, delay: index * 0.05 }}
+                                                            className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-yellow-50 transition-all group"
+                                                        >
+                                                            <TableCell>
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button
+                                                                            size="sm"
+                                                                            className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white"
+                                                                        >
+                                                                            <Menu className="w-4 h-4 mr-1" />
+                                                                            MENU
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="start" className="w-56">
+                                                                        <DropdownMenuItem
+                                                                            className="cursor-pointer"
+                                                                            onClick={() => {
+                                                                                setSelectedTitleForManagement(item);
+                                                                                setActiveTab('titleManagement');
+                                                                            }}
+                                                                        >
+                                                                            <Settings className="w-4 h-4 mr-2" />
+                                                                            保存タイトル管理
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem
+                                                                            className="cursor-pointer"
+                                                                            onClick={async () => {
+                                                                                setSelectedTitleForExport(item);
+                                                                                setIsLoadingExportPatents(true);
+                                                                                setIsExportDialogOpen(true);
+                                                                                try {
+                                                                                    const result = await patentAPI.getByTitle(item.id, { includeFullText: false });
+                                                                                    const payload = result.data?.data ?? result.data ?? result;
+                                                                                    const patentList = Array.isArray(payload?.patents) ? payload.patents : [];
+                                                                                    setExportPatents(patentList);
+                                                                                } catch (error) {
+                                                                                    console.error('Failed to fetch patents for export:', error);
+                                                                                    setExportPatents([]);
+                                                                                } finally {
+                                                                                    setIsLoadingExportPatents(false);
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            <FileDown className="w-4 h-4 mr-2" />
+                                                                            保存データ全件出力
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem
+                                                                            className="cursor-pointer"
+                                                                            onClick={() => {
+                                                                                setSelectedTitleForManualEntry(item);
+                                                                                setIsManualEntryDialogOpen(true);
+                                                                            }}
+                                                                        >
+                                                                            <FilePlus className="w-4 h-4 mr-2" />
+                                                                            1件ずつ手入力で追加
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem
+                                                                            className="cursor-pointer"
+                                                                            onClick={() => {
+                                                                                setSelectedTitleForImport({ no: item.no, name: item.title });
+                                                                                setActiveTab('import');
+                                                                            }}
+                                                                        >
+                                                                            <Upload className="w-4 h-4 mr-2" />
+                                                                            データのインポート
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem
+                                                                            className="cursor-pointer"
+                                                                            onClick={() => {
+                                                                                setSelectedTitleForDataSearch(item);
+                                                                                setActiveTab('dataSearch');
+                                                                            }}
+                                                                        >
+                                                                            <SearchIcon className="w-4 h-4 mr-2" />
+                                                                            保存データの検索
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuSeparator />
+                                                                        <DropdownMenuItem
+                                                                            className="cursor-pointer text-red-600 focus:text-red-600"
+                                                                            onClick={() => {
+                                                                                setTitleToDelete(item);
+                                                                                setShowDeleteDialog(true);
+                                                                            }}
+                                                                        >
+                                                                            <Trash2 className="w-4 h-4 mr-2" />
+                                                                            このタイトルを削除
+                                                                        </DropdownMenuItem>
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            </TableCell>
+                                                            <TableCell>{item.no}</TableCell>
+                                                            <TableCell>
+                                                                <button
+                                                                    onClick={() => handleOpenDetailPage(item.no, item.title, item.responsible, item.responsibleId, item.id)}
+                                                                    className="flex items-center gap-1 hover:text-orange-600 transition-colors w-full"
+                                                                >
+                                                                    {/* Indent for child titles */}
+                                                                    {item.parentTitleId && (
+                                                                        <span className="text-gray-400 text-sm mr-1 ml-6">└</span>
+                                                                    )}
+                                                                    {item.markColor && (
+                                                                        <div
+                                                                            className="w-1 h-6 rounded-full flex-shrink-0"
+                                                                            style={{ backgroundColor: item.markColor }}
+                                                                        />
+                                                                    )}
+                                                                    <span className="hover:underline text-left">
+                                                                        {item.title}
+                                                                    </span>
+                                                                </button>
+                                                            </TableCell>
+                                                            <TableCell className="text-center">
+                                                                {getDataTypeIcon(item.dataType)}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Badge variant="outline" className="bg-blue-50 border-blue-300 text-blue-700 group-hover:bg-orange-100 group-hover:border-orange-300 group-hover:text-orange-800">
+                                                                    {item.department}
+                                                                </Badge>
+                                                            </TableCell>
+                                                            <TableCell>{item.responsible}</TableCell>
+                                                            <TableCell className="text-center">
+                                                                {(item.dataCount > 0 || !item.title.includes('コピー')) && (
+                                                                    <Badge className="bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 border-0 group-hover:bg-orange-200 group-hover:text-orange-800">
+                                                                        {item.dataCount}
+                                                                    </Badge>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell className="text-center">
+                                                                {(item.dataCount > 0 || !item.title.includes('コピー')) && (
+                                                                    <Badge className="bg-green-100 text-green-700 border-0 group-hover:bg-orange-200 group-hover:text-orange-800">
+                                                                        {item.evaluated}
+                                                                    </Badge>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell className="text-center">
+                                                                {(item.dataCount > 0 || !item.title.includes('コピー')) && (
+                                                                    <Badge className="bg-orange-100 text-orange-700 border-0 group-hover:bg-orange-200 group-hover:text-orange-800">
+                                                                        {item.notEvaluated}
+                                                                    </Badge>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell className="text-center">
+                                                                {(item.dataCount > 0 || !item.title.includes('コピー')) && (
+                                                                    <Badge className="bg-gray-100 text-gray-700 border-0 group-hover:bg-orange-200 group-hover:text-orange-800">
+                                                                        {item.trash}
+                                                                    </Badge>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell className="text-center">
+                                                                {(item.dataCount > 0 || !item.title.includes('コピー')) && (
+                                                                    <div className="flex items-center justify-center gap-2">
+                                                                        <div className="w-24 bg-gray-200 rounded-full h-2 group-hover:bg-orange-200">
+                                                                            <div
+                                                                                className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full group-hover:from-orange-600 group-hover:to-yellow-600"
+                                                                                style={{ width: `${item.progressRate}%` }}
+                                                                            ></div>
+                                                                        </div>
+                                                                        <span className="text-sm w-12 text-right tabular-nums">
+                                                                            {Number.isInteger(item.progressRate) ? item.progressRate : item.progressRate?.toFixed(1)}%
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell className="text-center">
+
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => handleOpenAttachmentDialog(item.no)}
+                                                                    className={`relative hover:bg-gray-100 group-hover:hover:bg-orange-200 ${item.attachments > 0 ? 'text-blue-600 hover:text-blue-700' : 'text-gray-400 hover:text-gray-600'
+                                                                        }`}
+                                                                >
+                                                                    {item.attachments > 0 ? (
+                                                                        <>
+                                                                            <FileText className="w-4 h-4" />
+                                                                            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white border-2 border-white">
+                                                                                {item.attachments}
+                                                                            </span>
+                                                                        </>
+                                                                    ) : (
+                                                                        <Paperclip className="w-4 h-4" />
+                                                                    )}
+                                                                </Button>
+                                                            </TableCell>
+                                                            <TableCell className="text-center">{item.date}</TableCell>
+                                                        </MotionTableRow>
+                                                    ))
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
                                 </div>
 
                                 {/* Footer Info */}
