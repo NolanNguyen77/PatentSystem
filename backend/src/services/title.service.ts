@@ -149,6 +149,16 @@ export const getAllTitles = async (
         no: title.parentTitle.titleNo,
         name: title.parentTitle.titleName,
       } : null,
+      mainOwnerId: title.mainOwnerId,
+      titleUsers: title.titleUsers.map((tu: any) => ({
+        userId: tu.user.id,
+        username: tu.user.userId,
+        name: tu.user.name,
+        isMainResponsible: tu.isMainResponsible,
+        isAdmin: tu.isAdmin,
+        isGeneral: tu.isGeneral,
+        isViewer: tu.isViewer,
+      })),
     };
   });
 

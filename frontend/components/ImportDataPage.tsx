@@ -272,7 +272,7 @@ export function ImportDataPage({ onBack, titleNo }: ImportDataPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50/50 to-yellow-50">
       {/* Header */}
       <div className="bg-white border-b">
         <div className="container mx-auto px-6 py-4">

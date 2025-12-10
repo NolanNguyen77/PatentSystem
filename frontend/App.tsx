@@ -11,6 +11,7 @@ export default function App() {
   const [view, setView] = useState<ViewState>('landing');
   const [username, setUsername] = useState('');
   const [isChecking, setIsChecking] = useState(true);
+  const [isViewOnly, setIsViewOnly] = useState(false);
 
   // Check if user is already logged in on mount
   useEffect(() => {
@@ -20,6 +21,7 @@ export default function App() {
     if (token && savedUsername) {
       // Verify token is still valid (optional)
       setUsername(savedUsername);
+      setIsViewOnly(false);
       setView('dashboard');
     } else {
       setView('landing');
@@ -29,6 +31,14 @@ export default function App() {
 
   const handleLogin = (user: string) => {
     setUsername(user);
+    setIsViewOnly(false);
+    setView('dashboard');
+  };
+
+  const handleViewOnly = () => {
+    // Enter view-only mode without login
+    setUsername('ゲスト');
+    setIsViewOnly(true);
     setView('dashboard');
   };
 
@@ -38,6 +48,7 @@ export default function App() {
     localStorage.removeItem('username');
     setView('landing');
     setUsername('');
+    setIsViewOnly(false);
   };
 
   // Show loading state while checking authentication
@@ -63,7 +74,11 @@ export default function App() {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
           >
-            <TitleListPage username={username} onLogout={handleLogout} />
+            <TitleListPage
+              username={username}
+              onLogout={handleLogout}
+              isViewOnly={isViewOnly}
+            />
           </motion.div>
         )}
 
@@ -87,7 +102,10 @@ export default function App() {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
           >
-            <HomePage onNavigateToLogin={() => setView('login')} />
+            <HomePage
+              onNavigateToLogin={() => setView('login')}
+              onNavigateToViewOnly={handleViewOnly}
+            />
           </motion.div>
         )}
       </AnimatePresence>
@@ -95,3 +113,4 @@ export default function App() {
     </>
   );
 }
+

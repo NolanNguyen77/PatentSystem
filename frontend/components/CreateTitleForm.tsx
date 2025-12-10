@@ -11,7 +11,7 @@ import { Checkbox } from './ui/checkbox';
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
-import { ColorSelect } from './ColorSelect';
+import { ColorSelect, getColorHex } from './ColorSelect';
 import { titleAPI } from '../services/api';
 
 interface CreateTitleFormProps {
@@ -345,8 +345,8 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
       const titleData = {
         titleName,
         dataType: dataType || '特許',
-        markColor: markType !== 'マークなし' ? markType : undefined,
-        parentTitleId: parentTitle || undefined, // Send parent title ID
+        markColor: markType !== 'マークなし' ? getColorHex(markType) : undefined,
+        parentTitleId: parentTitle && parentTitle !== '__none__' ? parentTitle : undefined, // Send parent title ID
         saveDate,
         disallowEvaluation,
         allowEvaluation,
@@ -506,6 +506,7 @@ export function CreateTitleForm({ onBack, onSave }: CreateTitleFormProps) {
                       <SelectValue placeholder="選択してください" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="__none__">なし</SelectItem>
                       {parentTitles && parentTitles.length > 0 ? (
                         parentTitles.map((title: any) => (
                           <SelectItem key={title.id || title.no} value={title.id || title.no}>

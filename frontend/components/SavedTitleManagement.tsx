@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Checkbox } from './ui/checkbox';
 import { Alert, AlertDescription } from './ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
-import { ColorSelect } from './ColorSelect';
+import { ColorSelect, getColorHex } from './ColorSelect';
 import { AssignmentDialog } from './AssignmentDialog';
 import { titleAPI } from '../services/api';
 import { notifySuccess, notifyError } from '../utils/notifications';
@@ -39,6 +39,7 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [canEdit, setCanEdit] = useState(false); // Can current user edit this title's basic info?
   const [showPermissionWarning, setShowPermissionWarning] = useState(false);
   const [permissionWarningMessage, setPermissionWarningMessage] = useState('');
 
@@ -205,7 +206,26 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
             const currentUser = usersData.data.users.find((u: any) => u.userId === currentUsername);
             if (currentUser && (currentUser.permission === '管理者' || currentUser.role === '管理者' || currentUser.isAdmin)) {
               setIsAdmin(true);
-              console.log('✅ Current user is admin');
+              setCanEdit(true); // System admin can edit everything
+              console.log('✅ Current user is system admin - can edit');
+            } else if (titleData) {
+              // Check if current user is 主担当 or title admin
+              const titleUsers = titleData.titleUsers || titleData.users || [];
+              const isMainResponsible = titleUsers.some((tu: any) => {
+                const userId = tu.user?.userId || tu.userId;
+                return userId === currentUsername && tu.isMainResponsible === true;
+              });
+              const isTitleAdmin = titleUsers.some((tu: any) => {
+                const userId = tu.user?.userId || tu.userId;
+                return userId === currentUsername && tu.isAdmin === true;
+              });
+
+              if (isMainResponsible || isTitleAdmin) {
+                setCanEdit(true);
+                console.log('✅ Current user is 主担当/タイトル管理者 - can edit');
+              } else {
+                console.log('⚠️ Current user has no edit permission for this title');
+              }
             }
           }
         }
@@ -387,7 +407,7 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
       // Filter out users without userId
       const validUsers = selectedUsers.filter(u => u.userId && u.userId.trim() !== '');
 
-      const updateData = {
+      const updateData: any = {
         users: validUsers.map((u, index) => ({
           userId: u.userId,
           isMainResponsible: u.isMain || false,
@@ -397,6 +417,17 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
           displayOrder: index
         }))
       };
+
+      // Include basic info updates if user has edit permission
+      if (canEdit) {
+        updateData.titleName = titleName;
+        updateData.dataType = dataType || '特許';
+        updateData.markColor = markType !== 'マークなし' ? getColorHex(markType) : undefined;
+        updateData.saveDate = saveDate;
+        updateData.disallowEvaluation = disallowEvaluation;
+        updateData.allowEvaluation = allowEvaluation;
+        console.log('📝 Including basic info updates (canEdit=true)');
+      }
 
       console.log('📤 Updating title users:', updateData);
       console.log('📤 Valid users count:', validUsers.length);
@@ -491,7 +522,7 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
             <div className="flex gap-4 items-end">
               <div className="flex-1">
                 <Label htmlFor="dataType">データ種別</Label>
-                <Select value={dataType} onValueChange={setDataType} disabled={!!titleData}>
+                <Select value={dataType} onValueChange={setDataType} disabled={!canEdit}>
                   <SelectTrigger id="dataType" className="border-2">
                     <SelectValue placeholder="一選択してください" />
                   </SelectTrigger>
@@ -511,7 +542,7 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
                   value={markType}
                   onValueChange={setMarkType}
                   className="border-2"
-                  disabled={!!titleData}
+                  disabled={!canEdit}
                 />
               </div>
             </div>
@@ -526,7 +557,7 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
                   onChange={(e) => setTitleName(e.target.value)}
                   placeholder="タイトル名を入力してください"
                   className="border-2"
-                  disabled={!!titleData}
+                  disabled={!canEdit}
                 />
               </div>
               <div className="flex-1">
@@ -591,7 +622,7 @@ export function SavedTitleManagement({ onBack, onSave, titleData }: SavedTitleMa
                   onChange={(e) => setSaveDate(e.target.value)}
                   placeholder="（入力形式：YYYY/MM）"
                   className="border-2"
-                  disabled={!!titleData}
+                  disabled={!canEdit}
                 />
               </div>
               <div className="flex-1">

@@ -401,7 +401,7 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50/50 to-yellow-50 overflow-x-hidden">
 
 
       {/* Dashboard Stats Section */}

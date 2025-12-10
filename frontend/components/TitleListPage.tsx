@@ -27,7 +27,10 @@ import {
     Search as MagnifyingGlass,
     ChevronDown,
     ShieldCheck,
-    Languages
+    Languages,
+    Palette,
+    Eye,
+    LogIn
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { titleAPI, attachmentAPI, patentAPI } from '../services/api';
@@ -46,6 +49,7 @@ import { ImportDataPage } from './ImportDataPage';
 import { SavedTitleManagement } from './SavedTitleManagement';
 import { ManualEntryDialog } from './ManualEntryDialog';
 import { ExportDataDialog } from './ExportDataDialog';
+import { SettingsPage } from './SettingsPage';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { notifySuccess, notifyError, notifyWarning, notifyInfo } from '../utils/notifications';
 import {
@@ -67,13 +71,14 @@ import {
 interface TitleListPageProps {
     username: string;
     onLogout: () => void;
+    isViewOnly?: boolean;
 }
 
 
 
 const MotionTableRow = motion(TableRow);
 
-export function TitleListPage({ username, onLogout }: TitleListPageProps) {
+export function TitleListPage({ username, onLogout, isViewOnly = false }: TitleListPageProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('list'); // 'list', 'create', 'copy', 'merge', 'search', 'dataSearch', 'admin', 'import', 'detail', 'company', 'titleManagement', 'patentDetails'
     const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
@@ -91,6 +96,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
         dateColumn?: string;
     } | undefined>(undefined);
     const [selectedTitleForManagement, setSelectedTitleForManagement] = useState<any>(null);
+    const [settingsInitialTab, setSettingsInitialTab] = useState('profile');
     const [savedTitles, setSavedTitles] = useState<any[]>([]);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -167,6 +173,8 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                     markColor: title.markColor || '',
                     parentTitleId: title.parentTitleId,
                     parentTitle: title.parentTitle,
+                    mainOwnerId: title.mainOwnerId || title.main_owner_id, // Added for permissions check
+                    titleUsers: title.titleUsers || [],
                 }));
 
                 console.log('✅ Transformed titles:', transformedTitles.length);
@@ -235,9 +243,114 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
 
     // Fetch titles on component mount
     useEffect(() => {
-        fetchTitles();
+        // If view-only mode, load sample data instead of calling API
+        if (isViewOnly) {
+            console.log('👁️ View-Only Mode: Loading sample data...');
+            const sampleData = [
+                {
+                    id: 'sample-1',
+                    no: 'T2025-001',
+                    title: '【サンプル】次世代バッテリー技術特許',
+                    department: '研究開発部',
+                    responsible: '山田太郎',
+                    responsibleId: 'yamada',
+                    dataCount: 156,
+                    evaluated: 89,
+                    notEvaluated: 67,
+                    trash: 0,
+                    progressRate: 57,
+                    date: '2025/12',
+                    dataType: '特許',
+                    attachments: 3,
+                    markColor: '#3b82f6',
+                    parentTitleId: null,
+                    titleUsers: []
+                },
+                {
+                    id: 'sample-2',
+                    no: 'T2025-002',
+                    title: '【サンプル】AI画像認識システム特許',
+                    department: 'AI研究室',
+                    responsible: '鈴木花子',
+                    responsibleId: 'suzuki',
+                    dataCount: 234,
+                    evaluated: 198,
+                    notEvaluated: 36,
+                    trash: 0,
+                    progressRate: 85,
+                    date: '2025/11',
+                    dataType: '特許',
+                    attachments: 5,
+                    markColor: '#22c55e',
+                    parentTitleId: null,
+                    titleUsers: []
+                },
+                {
+                    id: 'sample-3',
+                    no: 'T2025-003',
+                    title: '【サンプル】量子コンピューティング基礎研究',
+                    department: '先端技術部',
+                    responsible: '佐藤次郎',
+                    responsibleId: 'sato',
+                    dataCount: 78,
+                    evaluated: 45,
+                    notEvaluated: 33,
+                    trash: 0,
+                    progressRate: 58,
+                    date: '2025/10',
+                    dataType: '論文',
+                    attachments: 2,
+                    markColor: '#9333ea',
+                    parentTitleId: null,
+                    titleUsers: []
+                },
+                {
+                    id: 'sample-4',
+                    no: 'T2025-004',
+                    title: '【サンプル】自動運転車センサー技術',
+                    department: 'モビリティ開発',
+                    responsible: '田中美咲',
+                    responsibleId: 'tanaka',
+                    dataCount: 312,
+                    evaluated: 312,
+                    notEvaluated: 0,
+                    trash: 0,
+                    progressRate: 100,
+                    date: '2025/09',
+                    dataType: '特許',
+                    attachments: 8,
+                    markColor: '#f97316',
+                    parentTitleId: null,
+                    titleUsers: []
+                },
+                {
+                    id: 'sample-5',
+                    no: 'T2025-005',
+                    title: '【サンプル】再生可能エネルギー変換装置',
+                    department: '環境技術部',
+                    responsible: '高橋健一',
+                    responsibleId: 'takahashi',
+                    dataCount: 145,
+                    evaluated: 72,
+                    notEvaluated: 73,
+                    trash: 0,
+                    progressRate: 50,
+                    date: '2025/08',
+                    dataType: '特許',
+                    attachments: 4,
+                    markColor: '#ec4899',
+                    parentTitleId: null,
+                    titleUsers: []
+                }
+            ];
+            setSavedTitles(sampleData);
+            setIsLoading(false);
+            console.log('✅ Sample data loaded:', sampleData.length, 'titles');
+        } else {
+            fetchTitles();
+        }
         console.log('🍊 Orange Dashboard Loaded');
-    }, []);
+    }, [isViewOnly]);
 
     // Filter titles based on search query
     const filteredTitles = savedTitles.filter((title) => {
@@ -502,7 +615,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
         : 0;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-blue-50">
+        <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50/50 to-yellow-50">
             {/* Header */}
             {/* Header */}
             {/* Header */}
@@ -510,11 +623,11 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
             {/* Dashboard Header - Clean White Style */}
             <div className="sticky top-4 z-50 w-full px-4 mb-8">
                 <header className="container mx-auto">
-                    <div className="bg-white rounded-2xl shadow-2xl border-b-4 border-purple-600 relative flex items-center justify-between px-8 py-6 transition-all duration-300">
+                    <div className="bg-white rounded-2xl shadow-2xl border-b-4 border-orange-500 relative flex items-center justify-between px-8 py-6 transition-all duration-300">
 
                         {/* Left: Brand */}
                         <div className="flex items-center gap-4 cursor-pointer group hover:opacity-90 transition-opacity" onClick={() => setActiveTab('list')}>
-                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-200 group-hover:scale-105 transition-transform z-10">
+                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-200 group-hover:scale-105 transition-transform z-10">
                                 <Lightbulb className="w-8 h-8 text-white stroke-[2.5]" />
                             </div>
                             <span
@@ -530,7 +643,8 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                             <Button
                                 variant="ghost"
                                 onClick={() => setActiveTab('create')}
-                                className="group flex items-center gap-2 px-4 py-2 rounded-lg text-slate-700 hover:text-orange-600 hover:bg-orange-50 hover:-translate-y-1 hover:shadow-md transition-all duration-300 text-[15px] font-medium"
+                                disabled={isViewOnly}
+                                className={`group flex items-center gap-2 px-4 py-2 rounded-lg text-slate-700 hover:text-orange-600 hover:bg-orange-50 hover:-translate-y-1 hover:shadow-md transition-all duration-300 text-[15px] font-medium ${isViewOnly ? 'opacity-50 cursor-not-allowed hover:translate-y-0 hover:shadow-none' : ''}`}
                             >
                                 <FilePlus className="w-4 h-4 group-hover:scale-110 transition-transform duration-300" />
                                 作成
@@ -538,7 +652,8 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                             <Button
                                 variant="ghost"
                                 onClick={() => setIsCopyDialogOpen(true)}
-                                className="group flex items-center gap-2 px-4 py-2 rounded-lg text-slate-700 hover:text-orange-600 hover:bg-orange-50 hover:-translate-y-1 hover:shadow-md transition-all duration-300 text-[15px] font-medium"
+                                disabled={isViewOnly}
+                                className={`group flex items-center gap-2 px-4 py-2 rounded-lg text-slate-700 hover:text-orange-600 hover:bg-orange-50 hover:-translate-y-1 hover:shadow-md transition-all duration-300 text-[15px] font-medium ${isViewOnly ? 'opacity-50 cursor-not-allowed hover:translate-y-0 hover:shadow-none' : ''}`}
                             >
                                 <Copy className="w-4 h-4 group-hover:scale-110 transition-transform duration-300" />
                                 コピー
@@ -546,7 +661,8 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                             <Button
                                 variant="ghost"
                                 onClick={() => setActiveTab('merge')}
-                                className="group flex items-center gap-2 px-4 py-2 rounded-lg text-slate-700 hover:text-orange-600 hover:bg-orange-50 hover:-translate-y-1 hover:shadow-md transition-all duration-300 text-[15px] font-medium"
+                                disabled={isViewOnly}
+                                className={`group flex items-center gap-2 px-4 py-2 rounded-lg text-slate-700 hover:text-orange-600 hover:bg-orange-50 hover:-translate-y-1 hover:shadow-md transition-all duration-300 text-[15px] font-medium ${isViewOnly ? 'opacity-50 cursor-not-allowed hover:translate-y-0 hover:shadow-none' : ''}`}
                             >
                                 <Layers className="w-4 h-4 group-hover:scale-110 transition-transform duration-300" />
                                 マージ
@@ -554,7 +670,8 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                             <Button
                                 variant="ghost"
                                 onClick={() => setActiveTab('search')}
-                                className="group flex items-center gap-2 px-4 py-2 rounded-lg text-slate-700 hover:text-orange-600 hover:bg-orange-50 hover:-translate-y-1 hover:shadow-md transition-all duration-300 text-[15px] font-medium"
+                                disabled={isViewOnly}
+                                className={`group flex items-center gap-2 px-4 py-2 rounded-lg text-slate-700 hover:text-orange-600 hover:bg-orange-50 hover:-translate-y-1 hover:shadow-md transition-all duration-300 text-[15px] font-medium ${isViewOnly ? 'opacity-50 cursor-not-allowed hover:translate-y-0 hover:shadow-none' : ''}`}
                             >
                                 <MagnifyingGlass className="w-4 h-4 group-hover:scale-110 transition-transform duration-300" />
                                 検索
@@ -575,29 +692,94 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                         <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-green-600 transition-colors" />
                                     </button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" sideOffset={8} className="w-72 p-2 bg-white rounded-xl shadow-2xl border border-gray-100 !z-[9999]">
+                                <DropdownMenuContent align="end" sideOffset={8} className="w-52 p-1.5 bg-white rounded-xl shadow-2xl border border-gray-100 !z-[9999]">
                                     <div className="space-y-1">
-                                        <DropdownMenuItem className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg flex items-center gap-3 transition-colors cursor-pointer group/item">
-                                            <div className="p-2 bg-blue-100 text-blue-600 rounded-md group-hover/item:bg-blue-200 transition-colors"><User className="w-5 h-5" /></div>
-                                            <span className="flex-1">プロフィール</span>
+                                        <DropdownMenuItem
+                                            className="w-full p-1.5 cursor-pointer group hover:bg-slate-50 focus:bg-slate-50 mb-0.5 transition-all duration-200 rounded-md outline-none"
+                                            onClick={() => {
+                                                setSettingsInitialTab('profile');
+                                                setActiveTab('settings');
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-2 w-full">
+                                                <div className="w-7 h-7 rounded-md bg-blue-50 flex items-center justify-center transition-all duration-200 group-hover:bg-blue-100">
+                                                    <User className="w-3.5 h-3.5 text-blue-600" />
+                                                </div>
+                                                <span className="text-sm font-medium text-slate-600 group-hover:text-slate-900">プロフィール</span>
+                                            </div>
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg flex items-center gap-3 transition-colors cursor-pointer group/item">
-                                            <div className="p-2 rounded-md transition-colors" style={{ backgroundColor: '#f3e8ff', color: '#9333ea' }}> <ShieldCheck className="w-5 h-5" /></div>
-                                            <span className="flex-1">権限</span>
+
+                                        <DropdownMenuItem
+                                            className="w-full p-1.5 cursor-pointer group hover:bg-slate-50 focus:bg-slate-50 mb-0.5 transition-all duration-200 rounded-md outline-none"
+                                            onClick={() => {
+                                                setSettingsInitialTab('permissions');
+                                                setActiveTab('settings');
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-2 w-full">
+                                                <div className="w-7 h-7 rounded-md bg-yellow-50 flex items-center justify-center transition-all duration-200 group-hover:bg-yellow-100">
+                                                    <ShieldCheck className="w-3.5 h-3.5 text-yellow-600" />
+                                                </div>
+                                                <span className="text-sm font-medium text-slate-600 group-hover:text-slate-900">権限</span>
+                                            </div>
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg flex items-center gap-3 transition-colors cursor-pointer group/item">
-                                            <div className="p-2 rounded-md transition-colors" style={{ backgroundColor: '#fce7f3', color: '#db2777' }}><Settings className="w-5 h-5" /></div>
-                                            <span className="flex-1">外観</span>
+
+                                        <DropdownMenuItem
+                                            className="w-full p-1.5 cursor-pointer group hover:bg-slate-50 focus:bg-slate-50 mb-0.5 transition-all duration-200 rounded-md outline-none"
+                                            onClick={() => {
+                                                setSettingsInitialTab('appearance');
+                                                setActiveTab('settings');
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-2 w-full">
+                                                <div className="w-7 h-7 rounded-md bg-pink-50 flex items-center justify-center transition-all duration-200 group-hover:bg-pink-100">
+                                                    <Palette className="w-3.5 h-3.5 text-pink-600" />
+                                                </div>
+                                                <span className="text-sm font-medium text-slate-600 group-hover:text-slate-900">外観</span>
+                                            </div>
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg flex items-center gap-3 transition-colors cursor-pointer group/item">
-                                            <div className="p-2 rounded-md transition-colors" style={{ backgroundColor: '#ccfbf1', color: '#0d9488' }}><Languages className="w-5 h-5" /></div>
-                                            <span className="flex-1">言語</span>
+
+                                        <DropdownMenuItem
+                                            className="w-full p-1.5 cursor-pointer group hover:bg-slate-50 focus:bg-slate-50 mb-0.5 transition-all duration-200 rounded-md outline-none"
+                                            onClick={() => {
+                                                setSettingsInitialTab('language');
+                                                setActiveTab('settings');
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-2 w-full">
+                                                <div className="w-7 h-7 rounded-md bg-green-50 flex items-center justify-center transition-all duration-200 group-hover:bg-green-100">
+                                                    <Languages className="w-3.5 h-3.5 text-green-600" />
+                                                </div>
+                                                <span className="text-sm font-medium text-slate-600 group-hover:text-slate-900">言語</span>
+                                            </div>
+                                        </DropdownMenuItem>
+
+                                        <DropdownMenuItem
+                                            className="w-full p-1.5 cursor-pointer group hover:bg-slate-50 focus:bg-slate-50 mb-0.5 transition-all duration-200 rounded-md outline-none"
+                                            onClick={() => {
+                                                setSettingsInitialTab('profile');
+                                                setActiveTab('settings');
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-2 w-full">
+                                                <div className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center transition-all duration-200 group-hover:bg-slate-200">
+                                                    <Settings className="w-3.5 h-3.5 text-slate-600" />
+                                                </div>
+                                                <span className="text-sm font-medium text-slate-600 group-hover:text-slate-900">設定</span>
+                                            </div>
                                         </DropdownMenuItem>
                                     </div>
-                                    <DropdownMenuSeparator className="my-2 bg-gray-100" />
-                                    <DropdownMenuItem onClick={onLogout} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-3 transition-colors cursor-pointer focus:bg-red-50 focus:text-red-700 group/item">
-                                        <div className="p-2 bg-red-100 text-red-600 rounded-md group-hover/item:bg-red-200 transition-colors"><LogOut className="w-5 h-5" /></div>
-                                        <span className="flex-1">ログアウト</span>
+                                    <DropdownMenuSeparator className="my-1 bg-gray-100" />
+                                    <DropdownMenuItem
+                                        className="w-full p-1.5 cursor-pointer group hover:bg-red-50 focus:bg-red-50 transition-all duration-200 rounded-md outline-none"
+                                        onClick={onLogout}
+                                    >
+                                        <div className="flex items-center gap-2 w-full">
+                                            <div className="w-7 h-7 rounded-md bg-red-50 flex items-center justify-center transition-all duration-200 group-hover:bg-red-100">
+                                                <LogOut className="w-3.5 h-3.5 text-red-600" />
+                                            </div>
+                                            <span className="text-sm font-medium text-slate-600 group-hover:text-red-700">ログアウト</span>
+                                        </div>
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -605,6 +787,32 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                     </div>
                 </header>
             </div>
+
+            {/* View-Only Mode Banner */}
+            {isViewOnly && (
+                <div className="container mx-auto px-4 mb-4">
+                    <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4 shadow-md">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-amber-100 rounded-lg">
+                                    <Eye className="w-5 h-5 text-amber-600" />
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-amber-800">閲覧モード</p>
+                                    <p className="text-sm text-amber-600">現在、閲覧専用モードです。編集や操作を行うにはログインしてください。</p>
+                                </div>
+                            </div>
+                            <Button
+                                onClick={onLogout}
+                                className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md"
+                            >
+                                <LogIn className="w-4 h-4 mr-2" />
+                                ログイン
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Navigation is removed, replaced by Dashboard Actions */}
 
@@ -691,7 +899,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                             </div>
                                             <div className="flex items-center gap-1 bg-green-50 px-2 py-1 rounded-lg">
                                                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                                <span className="text-[10px] font-bold text-green-700">ACTIVE</span>
+                                                <span className="text-[10px] font-bold text-green-700">アクティブ</span>
                                             </div>
                                         </div>
 
@@ -699,15 +907,11 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                             <p className="text-sm font-bold text-gray-400 tracking-wide">保存タイトル数</p>
                                             <div className="flex items-baseline gap-2">
                                                 <h3 className="text-4xl font-extrabold text-slate-800 tracking-tight">{totalTitles}</h3>
-                                                <span className="text-sm font-semibold text-gray-400">titles</span>
+                                                <span className="text-sm font-semibold text-gray-400">タイトル</span>
                                             </div>
                                         </div>
 
-                                        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2">
-                                            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                                                <div className="bg-blue-500 h-full rounded-full" style={{ width: '100%' }}></div>
-                                            </div>
-                                        </div>
+
                                     </div>
                                 </motion.div>
 
@@ -727,7 +931,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                             </div>
                                             <div className="flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg">
                                                 <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                                <span className="text-[10px] font-bold text-emerald-700">TOTAL</span>
+                                                <span className="text-[10px] font-bold text-emerald-700">合計</span>
                                             </div>
                                         </div>
 
@@ -735,15 +939,11 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                             <p className="text-sm font-bold text-gray-400 tracking-wide">総データ件数</p>
                                             <div className="flex items-baseline gap-2">
                                                 <h3 className="text-4xl font-extrabold text-slate-800 tracking-tight">{totalPatents.toLocaleString()}</h3>
-                                                <span className="text-sm font-semibold text-gray-400">items</span>
+                                                <span className="text-sm font-semibold text-gray-400">アイテム</span>
                                             </div>
                                         </div>
 
-                                        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2">
-                                            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                                                <div className="bg-emerald-500 h-full rounded-full" style={{ width: '100%' }}></div>
-                                            </div>
-                                        </div>
+
                                     </div>
                                 </motion.div>
 
@@ -762,7 +962,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                                 <BarChart3 className="w-6 h-6" />
                                             </div>
                                             <div className="flex items-center gap-1 bg-purple-50 px-2 py-1 rounded-lg">
-                                                <span className="text-[10px] font-bold text-purple-700">AVERAGE</span>
+                                                <span className="text-[10px] font-bold text-purple-700">平均</span>
                                             </div>
                                         </div>
 
@@ -773,15 +973,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                             </div>
                                         </div>
 
-                                        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2">
-                                            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                                                <div
-                                                    className="bg-gradient-to-r from-purple-500 to-pink-500 h-full rounded-full transition-all duration-1000 ease-out"
-                                                    style={{ width: `${avgProgress}%` }}
-                                                ></div>
-                                            </div>
-                                            <span className="text-xs font-bold text-purple-600">{avgProgress}%</span>
-                                        </div>
+
                                     </div>
                                 </motion.div>
                             </div>
@@ -812,6 +1004,13 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                 onBack={() => setActiveTab('list')}
                                 titleData={selectedTitleForManagement}
                                 onSave={handleUpdateTitle}
+                            />
+                        ) : activeTab === 'settings' ? (
+                            <SettingsPage
+                                username={username}
+                                onBack={() => setActiveTab('list')}
+                                initialTab={settingsInitialTab}
+                                savedTitles={savedTitles}
                             />
                         ) : (
                             <>
@@ -857,7 +1056,7 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                         <Table>
                                             <TableHeader className="sticky top-0 z-20 bg-gray-50/95 backdrop-blur shadow-sm">
                                                 <TableRow className="border-b border-gray-100 hover:bg-transparent">
-                                                    <TableHead className="w-[100px]"></TableHead>
+                                                    <TableHead className="w-[50px] text-center"></TableHead>
                                                     <TableHead className="w-[80px] text-xs font-semibold text-gray-500 uppercase tracking-wider py-4">No</TableHead>
                                                     <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider py-4">保存データタイトル</TableHead>
                                                     <TableHead className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider py-4">用途</TableHead>
@@ -909,15 +1108,15 @@ export function TitleListPage({ username, onLogout }: TitleListPageProps) {
                                                             transition={{ duration: 0.3, delay: index * 0.05 }}
                                                             className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-yellow-50 transition-all group"
                                                         >
-                                                            <TableCell>
+                                                            <TableCell className="text-center">
                                                                 <DropdownMenu>
                                                                     <DropdownMenuTrigger asChild>
                                                                         <Button
-                                                                            size="sm"
-                                                                            className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white"
+                                                                            size="icon"
+                                                                            disabled={isViewOnly}
+                                                                            className={`h-8 w-8 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white shadow-md hover:shadow-lg transition-all duration-200 ${isViewOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                                         >
-                                                                            <Menu className="w-4 h-4 mr-1" />
-                                                                            MENU
+                                                                            <Menu className="w-4 h-4" />
                                                                         </Button>
                                                                     </DropdownMenuTrigger>
                                                                     <DropdownMenuContent align="start" className="w-56">

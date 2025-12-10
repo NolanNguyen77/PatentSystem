@@ -13,6 +13,16 @@ export const hasPermission = (userPermission: Permission, requiredPermission: Pe
   return permissionHierarchy[userPermission] >= permissionHierarchy[requiredPermission];
 };
 
+// Helper function to check if user is 主担当 of a title
+const isMainResponsibleForTitle = (titleUsers: any[], userId: string): boolean => {
+  return titleUsers.some(tu => tu.userId === userId && tu.isMainResponsible === true);
+};
+
+// Helper function to check if user is Admin (管理者) for a title
+const isAdminForTitle = (titleUsers: any[], userId: string): boolean => {
+  return titleUsers.some(tu => tu.userId === userId && tu.isAdmin === true);
+};
+
 export const canViewTitle = async (
   userId: string,
   titleId: string,
@@ -25,8 +35,14 @@ export const canViewTitle = async (
 
   if (!title) return false;
 
-  // 管理者 có thể xem tất cả
+  // システム管理者 can view all
   if (userPermission === '管理者') return true;
+
+  // 主担当 (Main Responsible) of this title can view everything
+  if (isMainResponsibleForTitle(title.titleUsers, userId)) return true;
+
+  // タイトル管理者 (Admin of this title) can view everything
+  if (isAdminForTitle(title.titleUsers, userId)) return true;
 
   // Check view permission setting
   if (title.viewPermission === 'all') return true;
@@ -50,8 +66,14 @@ export const canEditTitle = async (
 
   if (!title) return false;
 
-  // 管理者 có thể edit tất cả
+  // システム管理者 can edit all
   if (userPermission === '管理者') return true;
+
+  // 主担当 (Main Responsible) of this title has FULL edit access
+  if (isMainResponsibleForTitle(title.titleUsers, userId)) return true;
+
+  // タイトル管理者 (Admin of this title) has full edit access
+  if (isAdminForTitle(title.titleUsers, userId)) return true;
 
   // Check edit permission setting
   if (title.editPermission === 'all') return true;
@@ -75,13 +97,19 @@ export const canEvaluate = async (
 
   if (!title) return false;
 
-  // Check if evaluation is allowed
+  // Check if evaluation is allowed for this title
   if (!title.allowEvaluation) return false;
 
-  // 管理者 có thể evaluate
+  // システム管理者 can always evaluate
   if (userPermission === '管理者') return true;
 
-  // Check if user is assigned to title
+  // 主担当 (Main Responsible) of this title can always evaluate
+  if (isMainResponsibleForTitle(title.titleUsers, userId)) return true;
+
+  // タイトル管理者 (Admin of this title) can always evaluate
+  if (isAdminForTitle(title.titleUsers, userId)) return true;
+
+  // 一般 users assigned to this title can evaluate
   return title.titleUsers.some(tu => tu.userId === userId);
 };
 
