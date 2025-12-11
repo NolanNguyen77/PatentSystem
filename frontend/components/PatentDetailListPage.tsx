@@ -467,9 +467,9 @@ export function PatentDetailListPage({
         <div className="space-y-4">
           {patents.map((patent) => (
             <div key={patent.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
-              <div className="flex gap-4 p-4 items-stretch">
+              <div className="flex gap-4 p-4 items-stretch h-[600px]">
                 {/* Left Panel - Patent Info - Height fits content */}
-                <div className="w-[320px] flex-shrink-0 border border-blue-100 rounded-lg bg-white flex flex-col overflow-hidden shadow-sm max-h-full">
+                <div className="w-[320px] flex-shrink-0 border border-blue-100 rounded-lg bg-white flex flex-col overflow-hidden shadow-sm h-full">
                   <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-white text-sm flex items-center gap-2 flex-shrink-0 font-medium">
                     <Checkbox
                       checked={selectedIds.has(patent.id)}
@@ -478,7 +478,7 @@ export function PatentDetailListPage({
                     />
                     特許情報
                   </div>
-                  <div className="overflow-y-auto custom-scrollbar">
+                  <div className="flex-1 overflow-y-auto custom-scrollbar">
                     {[
                       { label: '【文献番号】', value: patent.documentNum, bold: true },
                       { label: '【出願番号】', value: patent.applicationNum },

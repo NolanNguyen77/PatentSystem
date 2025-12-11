@@ -404,193 +404,196 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50/50 to-yellow-50 overflow-x-hidden">
 
 
-      {/* Dashboard Stats Section */}
-      <div className="max-w-full px-6 py-6 font-sans">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="p-2 bg-orange-100 rounded-lg">
-            <Lightbulb className="w-6 h-6 text-orange-600" />
+      <div className="container mx-auto px-6 py-6">
+        {/* Unified Header Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-orange-100 p-6 mb-6">
+          {/* Title Section */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-orange-100 rounded-lg">
+              <Lightbulb className="w-6 h-6 text-orange-600" />
+            </div>
+            <div>
+              <span className="text-sm font-medium text-gray-500 block mb-0.5">保存タイトル No.{titleNo}</span>
+              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{titleName}</h1>
+            </div>
           </div>
-          <div>
-            <span className="text-sm font-medium text-gray-500 block mb-0.5">保存タイトル No.{titleNo}</span>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{titleName}</h1>
+
+          {/* Filters Section */}
+          <div className="space-y-4">
+            {/* Row 1: Search and Settings */}
+            <div className="flex items-center justify-between gap-4 mb-2">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="出願人・権利者名で検索..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-9 text-sm border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                />
+              </div>
+            </div>
+
+            {/* Row 2: Filter Buttons */}
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-1 flex-wrap">
+                {/* Group 1: Filter Type */}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setFilterType('all')}
+                  className={`rounded-full px-4 ${filterType === 'all' ? 'bg-orange-100 text-orange-700 font-bold' : 'text-gray-600 hover:bg-gray-100'}`}
+                >
+                  全件
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setFilterType('progress')}
+                  className={`rounded-full px-4 ${filterType === 'progress' ? 'bg-orange-100 text-orange-700 font-bold' : 'text-gray-600 hover:bg-gray-100'}`}
+                >
+                  進捗率(％)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setFilterType('unevaluated')}
+                  className={`rounded-full px-4 ${filterType === 'unevaluated' ? 'bg-orange-100 text-orange-700 font-bold' : 'text-gray-600 hover:bg-gray-100'}`}
+                >
+                  未評価(件)
+                </Button>
+
+                <div className="h-6 w-px bg-gray-200 mx-2"></div>
+
+                {/* Group 2: Date Filter */}
+                <div className="bg-gray-100/50 p-1 rounded-lg flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setDateFilter('application')}
+                    className={`rounded-md h-7 px-3 text-xs ${dateFilter === 'application' ? 'bg-white text-orange-700 shadow-sm font-medium' : 'text-gray-500 hover:text-gray-900'}`}
+                  >
+                    出願日
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setDateFilter('publication')}
+                    className={`rounded-md h-7 px-3 text-xs ${dateFilter === 'publication' ? 'bg-white text-orange-700 shadow-sm font-medium' : 'text-gray-500 hover:text-gray-900'}`}
+                  >
+                    公開日
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setDateFilter('registration')}
+                    className={`rounded-md h-7 px-3 text-xs ${dateFilter === 'registration' ? 'bg-white text-orange-700 shadow-sm font-medium' : 'text-gray-500 hover:text-gray-900'}`}
+                  >
+                    登録日
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setDateFilter('registration-gazette')}
+                    className={`rounded-md h-7 px-3 text-xs ${dateFilter === 'registration-gazette' ? 'bg-white text-orange-700 shadow-sm font-medium' : 'text-gray-500 hover:text-gray-900'}`}
+                  >
+                    登録公報
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setDateFilter('announcement')}
+                    className={`rounded-md h-7 px-3 text-xs ${dateFilter === 'announcement' ? 'bg-white text-orange-700 shadow-sm font-medium' : 'text-gray-500 hover:text-gray-900'}`}
+                  >
+                    公告日
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setDateFilter('gazette')}
+                    className={`rounded-md h-7 px-3 text-xs ${dateFilter === 'gazette' ? 'bg-white text-orange-700 shadow-sm font-medium' : 'text-gray-500 hover:text-gray-900'}`}
+                  >
+                    公報発行
+                  </Button>
+                </div>
+
+                <div className="h-6 w-px bg-gray-200 mx-2"></div>
+
+                {/* Group 3: Period Filter */}
+                <div className="bg-gray-100/50 p-1 rounded-lg flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setPeriodFilter('year')}
+                    className={`rounded-md h-7 px-3 text-xs ${periodFilter === 'year' ? 'bg-white text-orange-700 shadow-sm font-medium' : 'text-gray-500 hover:text-gray-900'}`}
+                  >
+                    年別
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setPeriodFilter('month')}
+                    className={`rounded-md h-7 px-3 text-xs ${periodFilter === 'month' ? 'bg-white text-orange-700 shadow-sm font-medium' : 'text-gray-500 hover:text-gray-900'}`}
+                  >
+                    月別
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setPeriodFilter('week')}
+                    className={`rounded-md h-7 px-3 text-xs ${periodFilter === 'week' ? 'bg-white text-orange-700 shadow-sm font-medium' : 'text-gray-500 hover:text-gray-900'}`}
+                  >
+                    週別
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onBack}
+                  className="text-sm h-8 transition-all duration-200 text-orange-600 border-orange-200 hover:bg-orange-100 hover:border-orange-300"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-1" />
+                  タイトル一覧へ戻る
+                </Button>
+                <div className="w-px h-5 bg-gray-300"></div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-sm h-8 transition-all duration-200 text-green-600 border-green-200 hover:bg-green-100 hover:border-green-300"
+                  onClick={handleExportCSV}
+                >
+                  <Download className="w-4 h-4 mr-1" />
+                  CSV出力
+                </Button>
+                <div className="w-px h-5 bg-gray-300"></div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-sm h-8 transition-all duration-200 text-blue-600 border-blue-200 hover:bg-blue-100 hover:border-blue-300"
+                >
+                  <RefreshCw className="w-4 h-4 mr-1" />
+                  更新
+                </Button>
+                <div className="w-px h-5 bg-gray-300"></div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-sm h-8 transition-all duration-200 text-yellow-600 border-yellow-200 hover:bg-yellow-100 hover:border-yellow-300"
+                  onClick={() => setIsAssignmentDialogOpen(true)}
+                >
+                  <Users className="w-4 h-4 mr-1" />
+                  担当者
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 
 
-      </div>
+        {/* Main Content */}
 
-      {/* Filters Section */}
-      <div className="bg-white border-b shadow-sm">
-        <div className="max-w-full px-6 py-4 space-y-4">
-          {/* Row 1: Search and Settings */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="出願人・権利者名で検索..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9 text-sm border-gray-300 focus:border-orange-500 focus:ring-orange-500"
-              />
-            </div>
-          </div>
-
-          {/* Row 2: Filter Buttons */}
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Group 1: Filter Type */}
-              <Button
-                size="sm"
-                variant={filterType === 'all' ? 'default' : 'outline'}
-                onClick={() => setFilterType('all')}
-                className={filterType === 'all' ? 'bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white' : ''}
-              >
-                全件
-              </Button>
-              <Button
-                size="sm"
-                variant={filterType === 'progress' ? 'default' : 'outline'}
-                onClick={() => setFilterType('progress')}
-                className={filterType === 'progress' ? 'bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white' : ''}
-              >
-                進捗率(％)
-              </Button>
-              <Button
-                size="sm"
-                variant={filterType === 'unevaluated' ? 'default' : 'outline'}
-                onClick={() => setFilterType('unevaluated')}
-                className={filterType === 'unevaluated' ? 'bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white' : ''}
-              >
-                未評価(件)
-              </Button>
-
-              <div className="h-6 w-px bg-gray-300 mx-2"></div>
-
-              {/* Group 2: Date Filter */}
-              <Button
-                size="sm"
-                variant={dateFilter === 'application' ? 'default' : 'outline'}
-                onClick={() => setDateFilter('application')}
-                className={dateFilter === 'application' ? 'bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white' : ''}
-              >
-                出願日
-              </Button>
-              <Button
-                size="sm"
-                variant={dateFilter === 'publication' ? 'default' : 'outline'}
-                onClick={() => setDateFilter('publication')}
-                className={dateFilter === 'publication' ? 'bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white' : ''}
-              >
-                公開日
-              </Button>
-              <Button
-                size="sm"
-                variant={dateFilter === 'registration' ? 'default' : 'outline'}
-                onClick={() => setDateFilter('registration')}
-                className={dateFilter === 'registration' ? 'bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white' : ''}
-              >
-                登録日
-              </Button>
-              <Button
-                size="sm"
-                variant={dateFilter === 'registration-gazette' ? 'default' : 'outline'}
-                onClick={() => setDateFilter('registration-gazette')}
-                className={dateFilter === 'registration-gazette' ? 'bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white' : ''}
-              >
-                登録公報発行日
-              </Button>
-              <Button
-                size="sm"
-                variant={dateFilter === 'announcement' ? 'default' : 'outline'}
-                onClick={() => setDateFilter('announcement')}
-                className={dateFilter === 'announcement' ? 'bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white' : ''}
-              >
-                公告日
-              </Button>
-              <Button
-                size="sm"
-                variant={dateFilter === 'gazette' ? 'default' : 'outline'}
-                onClick={() => setDateFilter('gazette')}
-                className={dateFilter === 'gazette' ? 'bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white' : ''}
-              >
-                公報発行日
-              </Button>
-
-              <div className="h-6 w-px bg-gray-300 mx-2"></div>
-
-              {/* Group 3: Period Filter */}
-              <Button
-                size="sm"
-                variant={periodFilter === 'year' ? 'default' : 'outline'}
-                onClick={() => setPeriodFilter('year')}
-                className={periodFilter === 'year' ? 'bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white' : ''}
-              >
-                年別
-              </Button>
-              <Button
-                size="sm"
-                variant={periodFilter === 'month' ? 'default' : 'outline'}
-                onClick={() => setPeriodFilter('month')}
-                className={periodFilter === 'month' ? 'bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white' : ''}
-              >
-                月別
-              </Button>
-              <Button
-                size="sm"
-                variant={periodFilter === 'week' ? 'default' : 'outline'}
-                onClick={() => setPeriodFilter('week')}
-                className={periodFilter === 'week' ? 'bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white' : ''}
-              >
-                週別
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onBack}
-                className="text-sm h-8 transition-all duration-200 text-orange-600 border-orange-200 hover:bg-orange-100 hover:border-orange-300"
-              >
-                <ArrowLeft className="w-4 h-4 mr-1" />
-                タイトル一覧へ戻る
-              </Button>
-              <div className="w-px h-5 bg-gray-300"></div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-sm h-8 transition-all duration-200 text-green-600 border-green-200 hover:bg-green-100 hover:border-green-300"
-                onClick={handleExportCSV}
-              >
-                <Download className="w-4 h-4 mr-1" />
-                CSV出力
-              </Button>
-              <div className="w-px h-5 bg-gray-300"></div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-sm h-8 transition-all duration-200 text-blue-600 border-blue-200 hover:bg-blue-100 hover:border-blue-300"
-              >
-                <RefreshCw className="w-4 h-4 mr-1" />
-                更新
-              </Button>
-              <div className="w-px h-5 bg-gray-300"></div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-sm h-8 transition-all duration-200 text-yellow-600 border-yellow-200 hover:bg-yellow-100 hover:border-yellow-300"
-                onClick={() => setIsAssignmentDialogOpen(true)}
-              >
-                <Users className="w-4 h-4 mr-1" />
-                担当者分担
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-full px-6 py-6">
         {/* Main Table Area */}
         <div className="bg-white rounded-lg shadow-sm border">
           {/* Matrix Table - Horizontal Scroll Only */}
@@ -606,7 +609,7 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                       onChange={handleSelectAll}
                     />
                   </TableHead>
-                  <TableHead className="min-w-[300px] bg-gray-100" style={{ position: 'sticky', left: '48px', zIndex: 10, borderRight: '4px solid #6b7280' }}>
+                  <TableHead className="w-[300px] min-w-[300px] max-w-[300px] bg-gray-100 border-r border-gray-300" style={{ position: 'sticky', left: '48px', zIndex: 10 }}>
                     出願人・権利者名
                   </TableHead>
                   <TableHead className="text-center w-20 bg-gray-100 border-r">
@@ -634,8 +637,8 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                   <TableCell className="sticky left-0 bg-blue-50 text-center border-r">
                     <input type="checkbox" className="w-4 h-4" disabled />
                   </TableCell>
-                  <TableCell className="bg-blue-50" style={{ position: 'sticky', left: '48px', borderRight: '4px solid #6b7280' }}>
-                    <span className="text-sm font-semibold">全件</span>
+                  <TableCell className="bg-blue-50 border-r border-blue-300" style={{ position: 'sticky', left: '48px', zIndex: 10 }}>
+                    <span className="text-sm font-semibold text-blue-900">全件</span>
                   </TableCell>
                   <TableCell className="bg-blue-50 text-center border-r">
                     <button
@@ -651,13 +654,13 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                   <TableCell className={`text-center border-r ${(() => {
                     const count = patentData.reduce((sum, item) => sum + (item.counts?.['日付未設定']?.count || 0), 0);
                     const evaluated = patentData.reduce((sum, item) => sum + (item.counts?.['日付未設定']?.evaluated || 0), 0);
-                    if (count > 0 && count === evaluated) return 'bg-orange-300 group-hover:bg-orange-300 font-bold';
+                    if (count > 0 && count === evaluated) return 'bg-orange-100 font-bold text-orange-900';
                     return 'bg-blue-50';
                   })()}`}
                     style={(() => {
                       const count = patentData.reduce((sum, item) => sum + (item.counts?.['日付未設定']?.count || 0), 0);
                       const evaluated = patentData.reduce((sum, item) => sum + (item.counts?.['日付未設定']?.evaluated || 0), 0);
-                      if (count > 0 && count === evaluated) return { backgroundColor: '#fed7aa' }; // orange-200
+                      if (count > 0 && count === evaluated) return { backgroundColor: '#ffedd5' }; // orange-100
                       return undefined;
                     })()}>
                     {(() => {
@@ -682,13 +685,13 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                   <TableCell className={`text-center border-r ${(() => {
                     const count = patentData.reduce((sum, item) => sum + (item.counts?.['以前']?.count || 0), 0);
                     const evaluated = patentData.reduce((sum, item) => sum + (item.counts?.['以前']?.evaluated || 0), 0);
-                    if (count > 0 && count === evaluated) return 'bg-orange-300 group-hover:bg-orange-300 font-bold';
+                    if (count > 0 && count === evaluated) return 'bg-orange-100 font-bold text-orange-900';
                     return 'bg-blue-50';
                   })()}`}
                     style={(() => {
                       const count = patentData.reduce((sum, item) => sum + (item.counts?.['以前']?.count || 0), 0);
                       const evaluated = patentData.reduce((sum, item) => sum + (item.counts?.['以前']?.evaluated || 0), 0);
-                      if (count > 0 && count === evaluated) return { backgroundColor: '#fed7aa' }; // orange-200
+                      if (count > 0 && count === evaluated) return { backgroundColor: '#ffedd5' }; // orange-100
                       return undefined;
                     })()}>
                     {(() => {
@@ -718,12 +721,12 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
 
                     let cellClass = "text-center border-r";
                     if (isFullyEvaluated) {
-                      cellClass += " bg-orange-300 group-hover:bg-orange-300 font-bold";
+                      cellClass += " bg-orange-100 font-bold text-orange-900";
                     } else {
                       cellClass += " bg-blue-50";
                     }
 
-                    const style = isFullyEvaluated ? { backgroundColor: '#fed7aa' } : // orange-200
+                    const style = isFullyEvaluated ? { backgroundColor: '#ffedd5' } : // orange-100
                       undefined;
 
                     return (
@@ -754,7 +757,7 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                     className={`group hover:bg-orange-50 transition-colors ${selectedRows.includes(item.id) ? 'bg-blue-50' : ''
                       }`}
                   >
-                    <TableCell className="sticky left-0 group-hover:bg-orange-50 text-center border-r transition-colors" style={{ backgroundColor: selectedRows.includes(item.id) ? '#dbeafe' : 'white' }}>
+                    <TableCell className={`sticky left-0 text-center border-r transition-colors ${selectedRows.includes(item.id) ? 'bg-blue-50' : 'bg-white group-hover:bg-orange-50'}`}>
                       <input
                         type="checkbox"
                         className="w-4 h-4 cursor-pointer"
@@ -763,15 +766,15 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                       />
                     </TableCell>
                     <TableCell
-                      className="group-hover:bg-orange-50 transition-colors"
                       style={{
                         position: 'sticky',
                         left: '48px',
-                        backgroundColor: selectedRows.includes(item.id) ? '#dbeafe' : 'white',
-                        borderRight: '4px solid #6b7280'
                       }}
+                      className={`transition-colors border-r border-gray-300 max-w-[300px] ${selectedRows.includes(item.id) ? 'bg-blue-50' : 'bg-white group-hover:bg-orange-50'}`}
                     >
-                      <span className="text-sm">{item.company}</span>
+                      <div className="truncate" title={item.company}>
+                        <span className="text-sm">{item.company}</span>
+                      </div>
                     </TableCell>
                     <TableCell className="group-hover:bg-orange-50 text-center border-r transition-colors">
                       <button
@@ -787,15 +790,10 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                     <TableCell className={`group-hover:bg-orange-50 text-center border-r transition-colors ${(() => {
                       const count = item.counts?.['日付未設定']?.count || 0;
                       const evaluated = item.counts?.['日付未設定']?.evaluated || 0;
-                      if (count > 0 && count === evaluated) return 'bg-orange-300 group-hover:bg-orange-300 font-bold';
-                      return '';
+                      if (count > 0 && count === evaluated) return 'bg-orange-100 group-hover:bg-orange-200 font-bold text-orange-900';
+                      return 'group-hover:bg-orange-50';
                     })()}`}
-                      style={(() => {
-                        const count = item.counts?.['日付未設定']?.count || 0;
-                        const evaluated = item.counts?.['日付未設定']?.evaluated || 0;
-                        if (count > 0 && count === evaluated) return { backgroundColor: '#fed7aa' }; // orange-200
-                        return undefined;
-                      })()}>
+                      style={{}}>
                       {item.counts?.['日付未設定']?.count > 0 ? (
                         <button
                           className="text-blue-600 hover:underline text-xs"
@@ -815,15 +813,10 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                     <TableCell className={`group-hover:bg-orange-50 text-center border-r transition-colors ${(() => {
                       const count = item.counts?.['以前']?.count || 0;
                       const evaluated = item.counts?.['以前']?.evaluated || 0;
-                      if (count > 0 && count === evaluated) return 'bg-orange-300 group-hover:bg-orange-300 font-bold';
-                      return '';
+                      if (count > 0 && count === evaluated) return 'bg-orange-100 group-hover:bg-orange-200 font-bold text-orange-900';
+                      return 'group-hover:bg-orange-50';
                     })()}`}
-                      style={(() => {
-                        const count = item.counts?.['以前']?.count || 0;
-                        const evaluated = item.counts?.['以前']?.evaluated || 0;
-                        if (count > 0 && count === evaluated) return { backgroundColor: '#fed7aa' }; // orange-200
-                        return undefined;
-                      })()}>
+                      style={{}}>
                       {item.counts?.['以前']?.count > 0 ? (
                         <button
                           className="text-blue-600 hover:underline text-xs"
@@ -840,45 +833,48 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
                         <span className="text-xs text-gray-400">-</span>
                       )}
                     </TableCell>
-                    {dateColumns.map((col) => {
-                      const cellData = item.counts?.[col];
-                      const count = cellData?.count || 0;
-                      const evaluated = cellData?.evaluated || 0;
-                      const isPartiallyEvaluated = count > 0 && evaluated > 0;
-                      const isFullyEvaluated = count > 0 && evaluated === count;
+                    {
+                      dateColumns.map((col) => {
+                        const cellData = item.counts?.[col];
+                        const count = cellData?.count || 0;
+                        const evaluated = cellData?.evaluated || 0;
+                        const isPartiallyEvaluated = count > 0 && evaluated > 0;
+                        const isFullyEvaluated = count > 0 && evaluated === count;
 
-                      let cellClass = "group-hover:bg-orange-50 text-center border-r transition-colors";
-                      if (isFullyEvaluated) {
-                        cellClass += " bg-orange-300 group-hover:bg-orange-300 font-bold";
-                      }
+                        let cellClass = "text-center border-r transition-colors";
+                        if (isFullyEvaluated) {
+                          cellClass += " bg-orange-100 group-hover:bg-orange-200 font-bold text-orange-900";
+                        } else {
+                          cellClass += " group-hover:bg-orange-50";
+                        }
 
-                      const style = isFullyEvaluated ? { backgroundColor: '#fed7aa' } : // orange-200
-                        undefined;
+                        const style = undefined;
 
-                      return (
-                        <TableCell
-                          key={col}
-                          className={cellClass}
-                          style={style}
-                        >
-                          {count > 0 ? (
-                            <button
-                              className="text-blue-600 hover:underline text-xs"
-                              onClick={() => onViewPatentDetails?.(
-                                item.company,
-                                count,
-                                { titleNo, titleName },
-                                { dateFilter, periodFilter, dateColumn: col }
-                              )}
-                            >
-                              {count}
-                            </button>
-                          ) : (
-                            <span className="text-xs text-gray-400">-</span>
-                          )}
-                        </TableCell>
-                      );
-                    })}
+                        return (
+                          <TableCell
+                            key={col}
+                            className={cellClass}
+                            style={style}
+                          >
+                            {count > 0 ? (
+                              <button
+                                className="text-blue-600 hover:underline text-xs"
+                                onClick={() => onViewPatentDetails?.(
+                                  item.company,
+                                  count,
+                                  { titleNo, titleName },
+                                  { dateFilter, periodFilter, dateColumn: col }
+                                )}
+                              >
+                                {count}
+                              </button>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
+                            )}
+                          </TableCell>
+                        );
+                      })
+                    }
                   </TableRow>
                 ))}
               </TableBody>
@@ -909,12 +905,13 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
             </div>
           </div>
         </div>
-      </div>
+      </div >
 
       {/* AssignmentDialog */}
-      <AssignmentDialog
+      < AssignmentDialog
         isOpen={isAssignmentDialogOpen}
-        onClose={() => setIsAssignmentDialogOpen(false)}
+        onClose={() => setIsAssignmentDialogOpen(false)
+        }
         titleNo={titleNo}
         titleName={titleName}
         titleId={resolvedTitleId || titleId}
@@ -922,6 +919,6 @@ export function TitleDetailPage({ titleNo, titleName, titleId, onBack, onViewPat
         hideRangeSelector={true}
         onAssignmentComplete={fetchPatents}
       />
-    </div>
+    </div >
   );
 }
